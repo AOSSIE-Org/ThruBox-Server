@@ -207,7 +207,8 @@ Thank you for considering contributing to this project! Contributions are highly
 
 ## ✨ Maintainers
 
-- [Bruno Woltzenlogel Paleo](https://github.com/Csjt)
+- [Bruno](https://github.com/Zahnentferner)
+- [Atharva](https://github.com/Atharva0506)
 
 ---
 
