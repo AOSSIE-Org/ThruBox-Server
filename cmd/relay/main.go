@@ -120,12 +120,12 @@ func purgeLoop(ctx context.Context, s store.Store) {
 	defer ticker.Stop()
 
 	// Run once immediately on startup
-	runPurge(s)
+	runPurge(ctx, s)
 
 	for {
 		select {
 		case <-ticker.C:
-			runPurge(s)
+			runPurge(ctx, s)
 		case <-ctx.Done():
 			slog.Info("purge loop stopped")
 			return
@@ -134,8 +134,8 @@ func purgeLoop(ctx context.Context, s store.Store) {
 }
 
 // runPurge executes a single purge cycle.
-func runPurge(s store.Store) {
-	count, err := s.PurgeExpired()
+func runPurge(ctx context.Context, s store.Store) {
+	count, err := s.PurgeExpired(ctx)
 	if err != nil {
 		slog.Error("failed to purge expired messages", "error", err)
 		return
