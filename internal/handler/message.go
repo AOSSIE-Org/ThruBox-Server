@@ -64,7 +64,7 @@ func (h *MessageHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	// else: ExpiresAt stays nil, meaning "never expires"
 
-	if err := h.Store.SaveMessage(msg); err != nil {
+	if err := h.Store.SaveMessage(r.Context(), msg); err != nil {
 		slog.Error("failed to save message", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
@@ -86,7 +86,7 @@ func (h *MessageHandler) HandleGetByAddress(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	messages, err := h.Store.GetMessagesByAddress(address)
+	messages, err := h.Store.GetMessagesByAddress(r.Context(), address)
 	if err != nil {
 		slog.Error("failed to get messages", "error", err, "address", address)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -106,7 +106,7 @@ func (h *MessageHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Store.DeleteMessage(id); err != nil {
+	if err := h.Store.DeleteMessage(r.Context(), id); err != nil {
 		slog.Error("failed to delete message", "error", err, "id", id)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
