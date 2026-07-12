@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 
@@ -74,6 +75,9 @@ func Load(path string) (*Config, error) {
 		if os.IsNotExist(err) {
 			// No config file — use defaults + env overrides
 			applyEnvOverrides(cfg)
+			if err := cfg.Validate(); err != nil {
+				return nil, fmt.Errorf("invalid default configuration: %w", err)
+			}
 			return cfg, nil
 		}
 		return nil, fmt.Errorf("reading config file: %w", err)
@@ -84,6 +88,9 @@ func Load(path string) (*Config, error) {
 	}
 
 	applyEnvOverrides(cfg)
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
 	return cfg, nil
 }
 
@@ -93,6 +100,8 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("RELAY_SERVER_PORT"); v != "" {
 		if port, err := strconv.Atoi(v); err == nil {
 			cfg.Server.Port = port
+		} else {
+			log.Printf("warning: invalid RELAY_SERVER_PORT=%q, using default", v)
 		}
 	}
 
@@ -111,24 +120,47 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("RELAY_MESSAGES_TTL_DAYS"); v != "" {
 		if days, err := strconv.Atoi(v); err == nil {
 			cfg.Messages.TTLDays = days
+		} else {
+			log.Printf("warning: invalid RELAY_MESSAGES_TTL_DAYS=%q, using default", v)
 		}
 	}
 
 	if v := os.Getenv("RELAY_MESSAGES_MAX_PAYLOAD_SIZE"); v != "" {
 		if size, err := strconv.Atoi(v); err == nil {
 			cfg.Messages.MaxPayloadSize = size
+		} else {
+			log.Printf("warning: invalid RELAY_MESSAGES_MAX_PAYLOAD_SIZE=%q, using default", v)
 		}
 	}
 
 	if v := os.Getenv("RELAY_SECURITY_RATE_LIMIT"); v != "" {
 		if limit, err := strconv.Atoi(v); err == nil {
 			cfg.Security.RateLimit = limit
+		} else {
+			log.Printf("warning: invalid RELAY_SECURITY_RATE_LIMIT=%q, using default", v)
 		}
 	}
 
 	if v := os.Getenv("RELAY_SECURITY_API_KEY"); v != "" {
 		cfg.Security.APIKey = v
 	}
+}
+
+// Validate checks the configuration values for validity.
+func (c *Config) Validate() error {
+	if c.Server.Port < 1 || c.Server.Port > 65535 {
+		return fmt.Errorf("invalid server port: %d", c.Server.Port)
+	}
+	if c.Messages.TTLDays < 0 {
+		return fmt.Errorf("invalid ttl_days: %d", c.Messages.TTLDays)
+	}
+	if c.Messages.MaxPayloadSize < 0 {
+		return fmt.Errorf("invalid max_payload_size: %d", c.Messages.MaxPayloadSize)
+	}
+	if c.Security.RateLimit < 0 {
+		return fmt.Errorf("invalid rate_limit: %d", c.Security.RateLimit)
+	}
+	return nil
 }
 
 // Addr returns the listen address as "host:port".
