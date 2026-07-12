@@ -4,7 +4,6 @@
 <!-- Organization Logo -->
 <div align="center" style="display: flex; align-items: center; justify-content: center; gap: 16px;">
   <img alt="AOSSIE" src="public/aossie-logo.svg" width="175">
-  <img src="public/todo-project-logo.svg" width="175" />
 </div>
 
 &nbsp;
@@ -12,9 +11,7 @@
 <!-- Organization Name -->
 <div align="center">
 
-[![Static Badge](https://img.shields.io/badge/aossie.org/TODO-228B22?style=for-the-badge&labelColor=FFC517)](https://TODO.aossie.org/)
-
-<!-- Correct deployed url to be added -->
+[![Static Badge](https://img.shields.io/badge/aossie.org-228B22?style=for-the-badge&labelColor=FFC517)](https://aossie.org/)
 
 </div>
 
@@ -43,12 +40,12 @@
 
 
 <p align="center">
-  <a href="https://scorecard.dev/viewer/?uri=github.com/AOSSIE-Org/{repo}">
-    <img src="https://api.scorecard.dev/projects/github.com/AOSSIE-Org/{repo}/badge" alt="OpenSSF Scorecard"/>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/AOSSIE-Org/ThruBox-Server">
+    <img src="https://api.scorecard.dev/projects/github.com/AOSSIE-Org/ThruBox-Server/badge" alt="OpenSSF Scorecard"/>
   </a>
   &nbsp;&nbsp;
   <a href="./BestPracticesChecklist.md">
-    <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FAOSSIE-Org%2Frepo%2Fmain%2Fchecklist-status.json&query=%24.percent&suffix=%25&label=Best%20Practices&logo=openssf" alt="Best Practices"/>
+    <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FAOSSIE-Org%2FThruBox-Server%2Fmain%2Fchecklist-status.json&query=%24.percent&suffix=%25&label=Best%20Practices&logo=openssf" alt="Best Practices"/>
   </a>
   &nbsp;&nbsp;
   <a href="https://github.com/gitleaks/gitleaks">
@@ -59,202 +56,144 @@
 ---
 
 <div align="center">
-<h1>TODO: Project Name</h1>
+<h1>ThruBox Server</h1>
 </div>
 
-[TODO](https://TODO.stability.nexus/) is a ... TODO: Project Description.
+A simple, self-hostable relay server that acts as a **dumb encrypted mailbox**. Any application can use it to pass encrypted data between users. The server never sees plaintext — all encryption/decryption happens client-side.
 
 ---
 
 ## 🚀 Features
 
-TODO: List your main features here:
-
-- **Feature 1**: Description
-- **Feature 2**: Description
-- **Feature 3**: Description
-- **Feature 4**: Description
+- **Encrypted Message Relay**: Store and retrieve opaque encrypted payloads via simple REST endpoints
+- **Self-Hostable**: Single binary, embedded SQLite, zero external dependencies
+- **Configurable TTL**: Auto-purge messages after N days, or set to 0 for permanent storage
+- **Rate Limiting**: Built-in IP-based rate limiting to prevent abuse
+- **API Key Auth**: Optional API key authentication for private relays
+- **Docker Ready**: Dockerfile and Docker Compose included
 
 ---
 
 ## 💻 Tech Stack
 
-TODO: Update based on your project
-
-### Frontend
-- React / Next.js / Flutter / React Native
-- TypeScript
-- TailwindCSS
-
 ### Backend
-- Flask / FastAPI / Node.js / Supabase
-- Database: PostgreSQL / SQLite / MongoDB
+- Go 1.22+
+- SQLite (embedded, WAL mode) via `mattn/go-sqlite3`
+- `net/http` (standard library)
 
-### AI/ML (if applicable)
-- LangChain / LangGraph / LlamaIndex
-- Google Gemini / OpenAI / Anthropic Claude
-- Vector Database: Weaviate / Pinecone / Chroma
-- RAG / Prompt Engineering / Agent Frameworks
-
-### Blockchain (if applicable)
-- Solidity / solana / cardano / ergo Smart Contracts
-- Hardhat / Truffle / foundry
-- Web3.js / Ethers.js / Wagmi
-- OpenZeppelin / alchemy / Infura
-
----
-
-## ✅ Project Checklist
-
-TODO: Complete applicable items based on your project type
-
-- [ ] **The protocol** (if applicable):
-   - [ ] has been described and formally specified in a paper.
-   - [ ] has had its main properties mathematically proven.
-   - [ ] has been formally verified.
-- [ ] **The smart contracts** (if applicable):
-   - [ ] were thoroughly reviewed by at least two knights of The Stable Order.
-   - [ ] were deployed to: [Add deployment details]
-- [ ] **The mobile app** (if applicable):
-   - [ ] has an _About_ page containing the Stability Nexus's logo and pointing to the social media accounts of the Stability Nexus.
-   - [ ] is available for download as a release in this repo.
-   - [ ] is available in the relevant app stores.
-- [ ] **The AI/ML components** (if applicable):
-   - [ ] LLM/model selection and configuration are documented.
-   - [ ] Prompts and system instructions are version-controlled.
-   - [ ] Content safety and moderation mechanisms are implemented.
-   - [ ] API keys and rate limits are properly managed.
-
----
-
-## 🔗 Repository Links
-
-TODO: Update with your repository structure
-
-1. [Main Repository](https://github.com/AOSSIE-Org/TODO)
-2. [Frontend](https://github.com/AOSSIE-Org/TODO/tree/main/frontend) (if separate)
-3. [Backend](https://github.com/AOSSIE-Org/TODO/tree/main/backend) (if separate)
+### Infrastructure
+- Docker + Docker Compose
+- GitHub Actions CI/CD
 
 ---
 
 ## 🏗️ Architecture Diagram
 
-TODO: Add your system architecture diagram here
-
+```mermaid
+graph TD
+    Client["Client / SDK"] -->|HTTP| MW1["API Key Middleware"]
+    MW1 --> MW2["Rate Limiter"]
+    MW2 --> Mux["net/http ServeMux"]
+    Mux -->|"POST /api/messages"| H1["Create Message"]
+    Mux -->|"GET /api/messages/:address"| H2["Get by Address"]
+    Mux -->|"DELETE /api/messages/:id"| H3["Delete Message"]
+    Mux -->|"GET /health"| H4["Health Check"]
+    H1 & H2 & H3 --> Store["Store Interface"]
+    Store --> SQLite["SQLiteStore (WAL mode)"]
+    BG["Hourly Purge Goroutine"] --> Store
 ```
-[Architecture Diagram Placeholder]
-```
-
-You can create architecture diagrams using:
-- [Draw.io](https://draw.io)
-- [Excalidraw](https://excalidraw.com)
-- [Lucidchart](https://lucidchart.com)
-- [Mermaid](https://mermaid.js.org) (for code-based diagrams)
-
-Example structure to include:
-- Frontend components
-- Backend services
-- Database architecture
-- External APIs/services
-- Data flow between components
 
 ---
 
-## 🔄 User Flow
+## 🔄 API Endpoints
 
-TODO: Add user flow diagrams showing how users interact with your application
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/messages` | Store a new encrypted message |
+| `GET` | `/api/messages/:address` | Fetch all messages for a wallet address |
+| `DELETE` | `/api/messages/:id` | Delete a specific message |
+| `GET` | `/health` | Server health check |
 
+### Send a Message
+
+```bash
+curl -X POST http://localhost:3000/api/messages \
+  -H "Content-Type: application/json" \
+  -d '{"to": "0xRecipient", "from": "0xSender", "payload": "encrypted_base64_data"}'
 ```
-[User Flow Diagram Placeholder]
+
+### Fetch Messages
+
+```bash
+curl http://localhost:3000/api/messages/0xRecipient
 ```
 
-### Key User Journeys
+### Delete a Message
 
-TODO: Document main user flows:
-
-1. **User Journey 1**: Description
-   - Step 1
-   - Step 2
-   - Step 3
-
-2. **User Journey 2**: Description
-   - Step 1
-   - Step 2
-   - Step 3
-
-3. **User Journey 3**: Description
-   - Step 1
-   - Step 2
-   - Step 3
+```bash
+curl -X DELETE http://localhost:3000/api/messages/<message-id>
+```
 
 ---
 
-## �🍀 Getting Started
+## 🔗 Repository Links
+
+1. [ThruBox Server](https://github.com/AOSSIE-Org/ThruBox-Server) — This repository (relay server)
+2. [ThruBox Client](https://github.com/AOSSIE-Org/ThruBox-Client) — TypeScript SDK
+
+---
+
+## 🍀 Getting Started
 
 ### Prerequisites
 
-TODO: List what developers need installed
-
-- Node.js 18+ / Python 3.9+ / Flutter SDK
-- npm / yarn / pnpm
-- [Any specific tools or accounts needed]
+- Go 1.22+ with CGo enabled (required for SQLite)
+- GCC (for compiling go-sqlite3)
+- Docker (optional, for containerized deployment)
 
 ### Installation
-
-TODO: Provide detailed setup instructions
 
 #### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/AOSSIE-Org/TODO.git
-cd TODO
+git clone https://github.com/AOSSIE-Org/ThruBox-Server.git
+cd ThruBox-Server
 ```
 
 #### 2. Install Dependencies
 
 ```bash
-npm install
-# or
-yarn install
-# or
-pnpm install
+go mod download
 ```
 
-#### 3. Configure Environment Variables(.env.example)
-
-Create a `.env` file in the root directory:
-
-```env
-# Add your environment variables here
-API_KEY=your_api_key
-DATABASE_URL=your_database_url
-```
-
-#### 4. Run the Development Server
+#### 3. Build and Run
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
+go build -o relay-server ./cmd/relay
+./relay-server
 ```
 
-#### 5. Open your Browser
+The server starts on `http://localhost:3000` with a SQLite database that auto-creates at `./data/relay.db`.
 
-Navigate to [http://localhost:3000](http://localhost:3000) to see the application.
+#### 4. Docker (Alternative)
 
-For detailed setup instructions, please refer to our [Installation Guide](./docs/INSTALL_GUIDE.md) (if you have one).
+```bash
+docker compose up -d
+```
 
----
+### Configuration
 
-## 📱 App Screenshots
+Edit `config.yaml` or use environment variables:
 
-TODO: Add screenshots showcasing your application
-
-|  |  |  |
-|---|---|---|
-| Screenshot 1 | Screenshot 2 | Screenshot 3 |
+| Setting | YAML Key | Env Variable | Default |
+|---------|----------|-------------|---------|
+| Server port | `server.port` | `RELAY_SERVER_PORT` | `3000` |
+| Server host | `server.host` | `RELAY_SERVER_HOST` | `0.0.0.0` |
+| Storage path | `storage.path` | `RELAY_STORAGE_PATH` | `./data/relay.db` |
+| Message TTL | `messages.ttl_days` | `RELAY_MESSAGES_TTL_DAYS` | `7` (0 = forever) |
+| Max payload | `messages.max_payload_size` | `RELAY_MESSAGES_MAX_PAYLOAD_SIZE` | `524288` (500KB) |
+| Rate limit | `security.rate_limit` | `RELAY_SECURITY_RATE_LIMIT` | `30` req/min/IP |
+| API key | `security.api_key` | `RELAY_SECURITY_API_KEY` | `` (disabled) |
 
 ---
 
@@ -268,10 +207,8 @@ Thank you for considering contributing to this project! Contributions are highly
 
 ## ✨ Maintainers
 
-TODO: Add maintainer information
-
-- [Maintainer Name](https://github.com/username)
-- [Maintainer Name](https://github.com/username)
+- [Bruno](https://github.com/Zahnentferner)
+- [Atharva](https://github.com/Atharva0506)
 
 ---
 
@@ -284,8 +221,8 @@ See the [LICENSE](LICENSE) file for details.
 
 ## 💪 Thanks To All Contributors
 
-Thanks a lot for spending your time helping TODO grow. Keep rocking 🥂
+Thanks a lot for spending your time helping ThruBox grow. Keep rocking 🥂
 
-[![Contributors](https://contrib.rocks/image?repo=AOSSIE-Org/TODO)](https://github.com/AOSSIE-Org/TODO/graphs/contributors)
+[![Contributors](https://contrib.rocks/image?repo=AOSSIE-Org/ThruBox-Server)](https://github.com/AOSSIE-Org/ThruBox-Server/graphs/contributors)
 
-© 2025 AOSSIE 
+© 2025 AOSSIE
