@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -56,7 +57,7 @@ func initSchema(db *sql.DB) error {
 		from_addr  TEXT NOT NULL,
 		payload    TEXT NOT NULL,
 		created_at DATETIME NOT NULL,
-		expires_at DATETIME NOT NULL
+		expires_at DATETIME
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_messages_to_addr ON messages(to_addr);
@@ -67,17 +68,20 @@ func initSchema(db *sql.DB) error {
 }
 
 // SaveMessage inserts a new message into the database.
-func (s *SQLiteStore) SaveMessage(msg *model.Message) error {
+func (s *SQLiteStore) SaveMessage(ctx context.Context, msg *model.Message) error {
 	query := `INSERT INTO messages (id, to_addr, from_addr, payload, created_at, expires_at)
 	           VALUES (?, ?, ?, ?, ?, ?)`
 
-	// Store empty string for nil ExpiresAt (means "forever" — never auto-expires)
-	expiresAt := ""
+	// Store NULL for nil ExpiresAt (means "forever" — never auto-expires)
+	var expiresAt sql.NullString
 	if msg.ExpiresAt != nil {
-		expiresAt = msg.ExpiresAt.UTC().Format(time.RFC3339)
+		expiresAt = sql.NullString{
+			String: msg.ExpiresAt.UTC().Format(time.RFC3339),
+			Valid:  true,
+		}
 	}
 
-	_, err := s.db.Exec(query,
+	_, err := s.db.ExecContext(ctx, query,
 		msg.ID,
 		msg.To,
 		msg.From,
@@ -93,11 +97,11 @@ func (s *SQLiteStore) SaveMessage(msg *model.Message) error {
 
 // GetMessagesByAddress returns all messages addressed to the given wallet address.
 // Returns an empty slice (not nil) if no messages are found.
-func (s *SQLiteStore) GetMessagesByAddress(address string) ([]*model.Message, error) {
+func (s *SQLiteStore) GetMessagesByAddress(ctx context.Context, address string) ([]*model.Message, error) {
 	query := `SELECT id, to_addr, from_addr, payload, created_at, expires_at
-	           FROM messages WHERE to_addr = ? ORDER BY created_at ASC`
+	           FROM messages WHERE to_addr = ? AND (expires_at IS NULL OR expires_at >= ?) ORDER BY created_at ASC`
 
-	rows, err := s.db.Query(query, address)
+	rows, err := s.db.QueryContext(ctx, query, address, time.Now().UTC().Format(time.RFC3339))
 	if err != nil {
 		return nil, fmt.Errorf("querying messages: %w", err)
 	}
@@ -106,7 +110,8 @@ func (s *SQLiteStore) GetMessagesByAddress(address string) ([]*model.Message, er
 	messages := make([]*model.Message, 0)
 	for rows.Next() {
 		msg := &model.Message{}
-		var createdAt, expiresAt string
+		var createdAt string
+		var expiresAt sql.NullString
 
 		if err := rows.Scan(&msg.ID, &msg.To, &msg.From, &msg.Payload, &createdAt, &expiresAt); err != nil {
 			return nil, fmt.Errorf("scanning message row: %w", err)
@@ -117,9 +122,9 @@ func (s *SQLiteStore) GetMessagesByAddress(address string) ([]*model.Message, er
 			return nil, fmt.Errorf("parsing created_at: %w", err)
 		}
 
-		// Empty expires_at means "forever" — leave ExpiresAt as nil
-		if expiresAt != "" {
-			t, err := time.Parse(time.RFC3339, expiresAt)
+		// NULL expires_at means "forever" — leave ExpiresAt as nil
+		if expiresAt.Valid {
+			t, err := time.Parse(time.RFC3339, expiresAt.String)
 			if err != nil {
 				return nil, fmt.Errorf("parsing expires_at: %w", err)
 			}
@@ -138,10 +143,10 @@ func (s *SQLiteStore) GetMessagesByAddress(address string) ([]*model.Message, er
 
 // DeleteMessage removes a message by its ID.
 // Returns nil even if the message does not exist (idempotent).
-func (s *SQLiteStore) DeleteMessage(id string) error {
+func (s *SQLiteStore) DeleteMessage(ctx context.Context, id string) error {
 	query := `DELETE FROM messages WHERE id = ?`
 
-	_, err := s.db.Exec(query, id)
+	_, err := s.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("deleting message: %w", err)
 	}
@@ -149,13 +154,13 @@ func (s *SQLiteStore) DeleteMessage(id string) error {
 }
 
 // PurgeExpired deletes all messages whose ExpiresAt is in the past.
-// Messages with empty expires_at ("forever") are never purged — only manual delete removes them.
+// Messages with NULL expires_at ("forever") are never purged — only manual delete removes them.
 // Returns the number of deleted messages.
-func (s *SQLiteStore) PurgeExpired() (int64, error) {
-	// Only purge messages that have an expiry set (non-empty) and are past their expiry
-	query := `DELETE FROM messages WHERE expires_at != '' AND expires_at < ?`
+func (s *SQLiteStore) PurgeExpired(ctx context.Context) (int64, error) {
+	// Only purge messages that have an expiry set (NOT NULL) and are past their expiry
+	query := `DELETE FROM messages WHERE expires_at IS NOT NULL AND expires_at < ?`
 
-	result, err := s.db.Exec(query, time.Now().UTC().Format(time.RFC3339))
+	result, err := s.db.ExecContext(ctx, query, time.Now().UTC().Format(time.RFC3339))
 	if err != nil {
 		return 0, fmt.Errorf("purging expired messages: %w", err)
 	}
