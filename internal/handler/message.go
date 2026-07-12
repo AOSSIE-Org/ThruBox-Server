@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -29,7 +30,8 @@ func (h *MessageHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		if err.Error() == "http: request body too large" {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
 			http.Error(w, "payload too large", http.StatusRequestEntityTooLarge)
 			return
 		}
@@ -70,11 +72,13 @@ func (h *MessageHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slog.Info("message stored", "id", msg.ID, "to", msg.To, "from", msg.From)
+	slog.Info("message stored", "id", msg.ID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(msg)
+	if err := json.NewEncoder(w).Encode(msg); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
 
 // HandleGetByAddress handles GET /api/messages/{address}.
@@ -94,7 +98,9 @@ func (h *MessageHandler) HandleGetByAddress(w http.ResponseWriter, r *http.Reque
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(messages)
+	if err := json.NewEncoder(w).Encode(messages); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
 
 // HandleDelete handles DELETE /api/messages/{id}.

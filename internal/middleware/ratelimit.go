@@ -2,8 +2,10 @@ package middleware
 
 import (
 	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -24,7 +26,7 @@ type RateLimiter struct {
 }
 
 // NewRateLimiter creates a new rate limiter with the given requests-per-minute limit.
-// It starts a background goroutine that cleans up stale entries every 5 minutes.
+// It starts a background goroutine that cleans up stale entries every 1 minute.
 func NewRateLimiter(requestsPerMinute int) *RateLimiter {
 	rl := &RateLimiter{
 		visitors: make(map[string]*visitor),
@@ -80,7 +82,7 @@ func (rl *RateLimiter) allow(ip string) bool {
 
 // cleanupLoop periodically removes stale visitor entries.
 func (rl *RateLimiter) cleanupLoop() {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
 	for {
@@ -116,14 +118,27 @@ func (rl *RateLimiter) Stop() {
 func extractIP(r *http.Request) string {
 	// Check X-Forwarded-For first (set by reverse proxies)
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return xff
+		// XFF can be a comma-separated list: "client, proxy1, proxy2"
+		// The first entry is the original client IP
+		parts := strings.SplitN(xff, ",", 2)
+		ip := strings.TrimSpace(parts[0])
+		if net.ParseIP(ip) != nil {
+			return ip
+		}
 	}
 
 	// Check X-Real-IP
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
+		ip := strings.TrimSpace(xri)
+		if net.ParseIP(ip) != nil {
+			return ip
+		}
 	}
 
-	// Fall back to RemoteAddr (includes port, but that's fine for rate limiting)
-	return r.RemoteAddr
+	// Fall back to RemoteAddr — strip the port
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
