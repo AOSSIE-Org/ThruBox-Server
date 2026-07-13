@@ -1,0 +1,15 @@
+server:
+  port: 3000
+  host: "0.0.0.0"
+
+storage:
+  driver: "sqlite"
+  path: "./data/relay.db"
+
+messages:
+  ttl_days: 7               # Auto-purge after N days. Set to 0 for forever (no auto-purge, manual delete only)
+  max_payload_size: 524288  # 500KB max payload
+
+security:
+  rate_limit: 30   # Requests per minute per IP
+  api_key: ""      # Optional: if set, all requests must include X-API-Key header
