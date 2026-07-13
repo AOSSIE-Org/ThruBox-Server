@@ -19,14 +19,18 @@ FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates
 
+RUN addgroup -S relay && adduser -S -G relay relay
+
 COPY --from=builder /app/relay-server /usr/local/bin/relay-server
 COPY --from=builder /app/config.yaml /etc/relay/config.yaml
 
-# Create data directory for SQLite
-RUN mkdir -p /data
+# Create data directory for SQLite and set ownership
+RUN mkdir -p /data && chown -R relay:relay /data
 
 # Set default storage path to the mounted volume
 ENV RELAY_STORAGE_PATH=/data/relay.db
+
+USER relay
 
 EXPOSE 3000
 
