@@ -1,0 +1,13 @@
+services:
+  relay:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - relay-data:/data
+    environment:
+      - RELAY_STORAGE_PATH=/data/relay.db
+    restart: unless-stopped
+
+volumes:
+  relay-data:
