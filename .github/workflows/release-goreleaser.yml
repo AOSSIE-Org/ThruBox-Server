@@ -18,9 +18,10 @@ jobs:
         with:
           fetch-depth: 0   # Full history needed for changelog
           persist-credentials: false  # Avoid exposing token to submodules
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version: stable
+          go-version-file: 'go.mod'
+          cache: false
       - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94
         with:
           version: latest
