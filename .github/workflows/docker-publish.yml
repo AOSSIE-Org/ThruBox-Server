@@ -44,20 +44,24 @@ jobs:
     steps:
       # ── Checkout ──────────────────────────────────────────────────────
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4.2.2
+
+      - name: Downcase IMAGE_NAME
+        run: |
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
 
       # ── Docker Buildx (required for multi-platform builds & caching) ─
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@29109295f81e9208c7d83416a243a0889c5658e4 # v3.6.0
+        uses: docker/setup-qemu-action@v3.6.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318357f6d90a77583a66938361715456f # v3.10.0
+        uses: docker/setup-buildx-action@v3.10.0
 
       # ── Registry Login ────────────────────────────────────────────────
       # Only login when we intend to push (skip on PRs).
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        uses: docker/login-action@v3.4.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -70,7 +74,7 @@ jobs:
       #   PR              → pr-<number>
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@902fa8e414c698e8b9685a865d214686b864a7c0 # v5.7.0
+        uses: docker/metadata-action@v5.7.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -93,7 +97,7 @@ jobs:
       # ── Build & Push ──────────────────────────────────────────────────
       - name: Build and push Docker image
         id: push
-        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0
+        uses: docker/build-push-action@v6.16.0
         with:
           context: .
           file: ./Dockerfile
@@ -110,7 +114,7 @@ jobs:
       # ── Attestation ──────────────────────────────────────────────────
       - name: Generate artifact attestation
         if: github.event_name != 'pull_request'
-        uses: actions/attest-build-provenance@db473fddc028af60658334401dc6fa3ffd8669fd # v2.3.0
+        uses: actions/attest-build-provenance@v2.3.0
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.push.outputs.digest }}
@@ -185,7 +189,7 @@ jobs:
           echo "::group::Loading built image"
           # The image was built but not pushed; load it from the build cache.
           # Re-build for the current platform only (faster for PR checks).
-          docker buildx build --load -t thrubox-server:pr-test .
+          docker buildx build --load -t thrubox-server:pr-test --cache-from=type=gha .
           echo "::endgroup::"
 
           echo "::group::Running container"
