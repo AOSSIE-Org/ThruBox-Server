@@ -22,7 +22,7 @@ FROM alpine:3.20
 # Ref: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#labelling-container-images
 LABEL org.opencontainers.image.source="https://github.com/AOSSIE-Org/ThruBox-Server" \
       org.opencontainers.image.description="Lightweight, self-hosted relay server for ephemeral message passing" \
-      org.opencontainers.image.licenses="ISC" \
+      org.opencontainers.image.licenses="GPL-3.0" \
       org.opencontainers.image.title="ThruBox-Server" \
       org.opencontainers.image.vendor="AOSSIE"
 

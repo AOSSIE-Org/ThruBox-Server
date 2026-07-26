@@ -94,7 +94,7 @@ jobs:
             org.opencontainers.image.description=Lightweight, self-hosted relay server for ephemeral message passing
             org.opencontainers.image.url=https://github.com/AOSSIE-Org/ThruBox-Server
             org.opencontainers.image.source=https://github.com/AOSSIE-Org/ThruBox-Server
-            org.opencontainers.image.licenses=ISC
+            org.opencontainers.image.licenses=GPL-3.0
             org.opencontainers.image.vendor=AOSSIE
 
       # ── Build & Push ──────────────────────────────────────────────────
