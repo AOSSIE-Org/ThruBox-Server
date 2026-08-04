@@ -74,31 +74,6 @@ jobs:
         uses: actions/checkout@v7
 
 
-# --------------------------------------------------
-# LANGUAGE RUNTIME SETUPS
-# Only run if language exists
-# --------------------------------------------------
-
-      - name: Setup Node
-        if: matrix.language == 'javascript-typescript'
-        uses: actions/setup-node@v6
-        with:
-          node-version: 20  # ⚠️ MANUAL change if project requires another version
-
-
-      - name: Setup Python
-        if: matrix.language == 'python'
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.x'  # ⚠️ MANUAL change if project pins version
-
-
-      - name: Setup Java
-        if: matrix.language == 'java-kotlin'
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21'   # ⚠️ MANUAL change if project uses 11 or 17
 
 # --------------------------------------------------
 # Initialize CodeQL
