@@ -1,6 +1,6 @@
 module github.com/AOSSIE-Org/ThruBox-Server
 
-go 1.23.18
+go 1.23.12
 
 require (
 	github.com/google/uuid v1.6.0
