@@ -4,6 +4,6 @@ go 1.23.12
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/mattn/go-sqlite3 v1.14.48
+	github.com/mattn/go-sqlite3 v1.14.49
 	gopkg.in/yaml.v3 v3.0.1
 )
