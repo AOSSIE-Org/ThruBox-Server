@@ -1,8 +1,28 @@
+# Directories
 .git/
 data/
+.github/
+.vscode/
+public/
+
+# Build artifacts
 *.db
 *.exe
 relay-server
-README.md
-LICENSE
-.github/
+
+# Config & meta files not needed in the image
+.goreleaser.yaml
+.pre-commit-config.yaml
+.editorconfig
+.gitattributes
+.gitignore
+.coderabbit.yaml
+.templatesyncignore
+docker-compose.yml
+dangerfile.js
+checklist-status.json
+VERSION
+
+# Documentation (README is not needed; LICENSE is not needed since it's in labels)
+*.md
+!CONTRIBUTING.md

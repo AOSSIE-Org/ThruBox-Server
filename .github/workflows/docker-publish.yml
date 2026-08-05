@@ -1,0 +1,219 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+#
+# Build and publish the ThruBox-Server Docker image to GitHub Container Registry.
+#
+# References:
+#   - GitHub Docs: https://docs.github.com/en/actions/use-cases-and-examples/publishing-packages/publishing-docker-images
+#   - docker/build-push-action: https://github.com/docker/build-push-action
+#   - docker/metadata-action: https://github.com/docker/metadata-action
+#
+# Prerequisites:
+#   - Repository Settings → Actions → General → Workflow permissions → "Read and write permissions"
+#   - No additional secrets required — uses the built-in GITHUB_TOKEN for ghcr.io auth.
+
+name: Docker Publish
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: ["main"]
+
+# Cancel redundant runs for the same branch/PR, but never cancel tag releases.
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  REGISTRY: ghcr.io
+  # github.repository returns "AOSSIE-Org/ThruBox-Server"; GHCR lowercases automatically.
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read        # Checkout the repository
+      packages: write       # Push images to ghcr.io
+      attestations: write   # Generate artifact attestations
+      id-token: write       # Required for attestation signing via OIDC
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Downcase IMAGE_NAME
+        run: |
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
+
+      # ── Docker Buildx (required for multi-platform builds & caching) ─
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+
+      # ── Registry Login ────────────────────────────────────────────────
+      # Only login when we intend to push (skip on PRs).
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Metadata (tags + OCI labels) ──────────────────────────────────
+      # Generates smart tags based on the Git event:
+      #   Tag push v1.2.3 → v1.2.3, 1.2.3, 1.2, 1, latest
+      #   Push to main    → latest, main, sha-<commit>
+      #   PR              → pr-<number>
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # On semver tag push: v1.2.3 → v1.2.3, 1.2.3, 1.2, 1
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # On push to main
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            # Short SHA for every push
+            type=sha,prefix=sha-
+          labels: |
+            org.opencontainers.image.title=ThruBox-Server
+            org.opencontainers.image.description=Lightweight, self-hosted relay server for ephemeral message passing
+            org.opencontainers.image.url=https://github.com/AOSSIE-Org/ThruBox-Server
+            org.opencontainers.image.source=https://github.com/AOSSIE-Org/ThruBox-Server
+            org.opencontainers.image.licenses=GPL-3.0
+            org.opencontainers.image.vendor=AOSSIE
+
+      # ── Build & Push ──────────────────────────────────────────────────
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Provenance attestations for supply-chain security
+          provenance: true
+          sbom: true
+
+      # ── Attestation ──────────────────────────────────────────────────
+      - name: Generate artifact attestation
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@db473fddc028af60658334401dc6fa3ffd8669fd # v2.3.0
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      # ── Post-push Smoke Test ──────────────────────────────────────────
+      # Pull the image we just pushed and verify the server binary works.
+      - name: Smoke test — verify image
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+
+          # Pull the image we just published (use the first tag)
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}"
+          echo "::group::Pulling image"
+          docker pull "${IMAGE}"
+          echo "::endgroup::"
+
+          # Run the container in the background
+          echo "::group::Starting container"
+          CONTAINER_ID=$(docker run -d -p 3000:3000 "${IMAGE}")
+          echo "Container ID: ${CONTAINER_ID}"
+          echo "::endgroup::"
+
+          # Wait for the server to be ready (up to 30 seconds)
+          echo "::group::Waiting for health check"
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/health > /dev/null 2>&1; then
+              echo "✅ Health check passed on attempt ${i}"
+              break
+            fi
+            if [ "${i}" -eq 30 ]; then
+              echo "❌ Health check failed after 30 attempts"
+              docker logs "${CONTAINER_ID}"
+              docker stop "${CONTAINER_ID}" || true
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "::endgroup::"
+
+          # Verify the response
+          echo "::group::Verifying API response"
+          HEALTH_RESPONSE=$(curl -sf http://localhost:3000/health)
+          echo "Health response: ${HEALTH_RESPONSE}"
+
+          if echo "${HEALTH_RESPONSE}" | grep -q '"status":"ok"'; then
+            echo "✅ Server responds correctly"
+          else
+            echo "❌ Unexpected health response"
+            exit 1
+          fi
+          echo "::endgroup::"
+
+          # Cleanup
+          docker stop "${CONTAINER_ID}" > /dev/null
+
+          # Print image digest for traceability
+          echo ""
+          echo "═══════════════════════════════════════════════════════"
+          echo "  Image published successfully!"
+          echo "  Digest: ${{ steps.push.outputs.digest }}"
+          echo "═══════════════════════════════════════════════════════"
+
+      # ── PR Build Verification ─────────────────────────────────────────
+      # On PRs, verify the image builds and the binary starts, even though we don't push.
+      - name: PR build verification
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+
+          echo "::group::Loading built image"
+          # The image was built but not pushed; load it from the build cache.
+          # Re-build for the current platform only (faster for PR checks).
+          docker buildx build --load -t thrubox-server:pr-test --cache-from=type=gha .
+          echo "::endgroup::"
+
+          echo "::group::Running container"
+          CONTAINER_ID=$(docker run -d -p 3000:3000 thrubox-server:pr-test)
+          echo "::endgroup::"
+
+          echo "::group::Health check"
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/health > /dev/null 2>&1; then
+              echo "✅ PR build health check passed"
+              break
+            fi
+            if [ "${i}" -eq 30 ]; then
+              echo "❌ PR build health check failed"
+              docker logs "${CONTAINER_ID}"
+              docker stop "${CONTAINER_ID}" || true
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "::endgroup::"
+
+          docker stop "${CONTAINER_ID}" > /dev/null
+          echo "✅ PR Docker build verification complete"

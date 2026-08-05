@@ -17,6 +17,15 @@ RUN CGO_ENABLED=1 go build -o relay-server -ldflags="-s -w" ./cmd/relay
 # Runtime stage
 FROM alpine:3.20
 
+# OCI labels — required by GHCR to link the package to the repository and
+# display metadata on the package page.
+# Ref: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#labelling-container-images
+LABEL org.opencontainers.image.source="https://github.com/AOSSIE-Org/ThruBox-Server" \
+      org.opencontainers.image.description="Lightweight, self-hosted relay server for ephemeral message passing" \
+      org.opencontainers.image.licenses="GPL-3.0" \
+      org.opencontainers.image.title="ThruBox-Server" \
+      org.opencontainers.image.vendor="AOSSIE"
+
 RUN apk add --no-cache ca-certificates
 
 RUN addgroup -S relay && adduser -S -G relay relay
