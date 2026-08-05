@@ -15,7 +15,7 @@ COPY . .
 RUN CGO_ENABLED=1 go build -o relay-server -ldflags="-s -w" ./cmd/relay
 
 # Runtime stage
-FROM alpine:3.20
+FROM alpine:3.24
 
 # OCI labels — required by GHCR to link the package to the repository and
 # display metadata on the package page.
