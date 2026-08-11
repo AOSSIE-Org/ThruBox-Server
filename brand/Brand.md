@@ -36,7 +36,7 @@ Sourced directly from `thrubox-logo.svg` (shared with [ThruBox-Client](https://g
 | 🟩 | ThruBox Green (mid) | `#228B22` | Sponge tile — front face, wordmark |
 | 🟩 | ThruBox Green (dark) | `#145A14` | Sponge tile — side face |
 | ⬛ | Outline | `#0f420f` | Tile stroke |
-| 🟨 | Lock Gold | `#FFC517` | Padlock accent (shared AOSSIE brand color) |
+| 🟨 | Lock Gold | `#FFC517` | Padlock accent, sourced from `thrubox-logo.svg` |
 
 ## Typography
 
