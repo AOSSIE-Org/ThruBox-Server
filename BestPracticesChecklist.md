@@ -30,9 +30,8 @@
 | Reporting          | 3   | 8     | 🔴     |
 | Quality            | 4   | 11     | 🔴     |
 | Security           | 4   | 9     | 🔴     |
-| Analysis           | 3   | 7     | 🔴     |
-| **Total**          | **27** | **49** | **55%** |
-
+| Analysis           | 2   | 7     | 🔴     |
+| **Total**          | **26** | **49** | **53%** |
 ---
 
 ## 🏗️ Basics
