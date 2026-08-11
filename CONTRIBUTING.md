@@ -75,27 +75,32 @@ What we expect:
 ### Setup
 
 1. **Fork the Repository**
+
    ```bash
    # Click the 'Fork' button at the top right of this page
    ```
 
 2. **Clone Your Fork**
+
    ```bash
    git clone https://github.com/YOUR_USERNAME/ThruBox-Server.git
    cd ThruBox-Server
    ```
 
 3. **Add Upstream Remote**
+
    ```bash
    git remote add upstream https://github.com/AOSSIE-Org/ThruBox-Server.git
    ```
 
 4. **Install Dependencies**
+
    ```bash
    go mod download
    ```
 
 5. **Run the Project**
+
    ```bash
    go build -o relay-server ./cmd/relay
    ./relay-server
@@ -224,7 +229,7 @@ Steps to test the changes
 
 ## 📝 Code Style Guidelines
 
-This is a Go project with **zero external runtime dependencies beyond SQLite** (`net/http` standard library only — see `.coderabbit.yaml`). Run `gofmt`/`go vet` before committing, and keep the storage layer parameterized (no string-concatenated SQL) to avoid injection issues.
+This is a Go project that keeps runtime dependencies minimal: `net/http` from the standard library plus `github.com/mattn/go-sqlite3`, `github.com/google/uuid`, and `gopkg.in/yaml.v3` (see `go.mod`). Discuss any new runtime dependency in an issue first. Run `gofmt`/`go vet` before committing, and keep the storage layer parameterized (no string-concatenated SQL) to avoid injection issues.
 
 ### General Guidelines
 

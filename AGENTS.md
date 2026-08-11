@@ -18,12 +18,13 @@ ThruBox Server is a self-hostable relay server acting as a "dumb encrypted mailb
 ```bash
 go mod download
 go build -o relay-server ./cmd/relay
-./relay-server
 go vet ./...
 go test ./...
+./relay-server   # run in a separate terminal — this blocks
 ```
 
 Docker:
+
 ```bash
 docker compose up -d
 ```
@@ -32,7 +33,7 @@ docker compose up -d
 
 ## Hard Constraints
 
-- Keep runtime dependencies minimal: standard library `net/http` plus `mattn/go-sqlite3` only — don't add a web framework or ORM without discussing it in an issue first.
+- Keep runtime dependencies minimal: standard library `net/http` plus `mattn/go-sqlite3`, `google/uuid`, and `yaml.v3` (see `go.mod`) — don't add a web framework, ORM, or other new dependency without discussing it in an issue first.
 - All SQL must be parameterized (no string-concatenated queries) — this is a relay storing arbitrary payloads, so injection surface must stay closed.
 - The server must never decrypt or inspect message payloads; it only stores/forwards opaque blobs.
 

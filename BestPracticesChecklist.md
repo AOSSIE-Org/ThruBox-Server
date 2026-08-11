@@ -32,6 +32,7 @@
 | Security           | 4   | 9     | 🔴     |
 | Analysis           | 3   | 7     | 🔴     |
 | **Total**          | **27** | **49** | **55%** |
+
 ---
 
 ## 🏗️ Basics
@@ -230,8 +231,8 @@
 - [ ] 🔴 **dynamic_analysis_fixed** — Medium+ severity vulnerabilities found by dynamic analysis are fixed in a timely manner.
   - *Note:* Not applicable yet — no dynamic analysis tool configured.
 
-- [~] 🔵 **dynamic_analysis_unsafe** — If the project uses memory-unsafe languages (C/C++), memory safety tools (Valgrind, AddressSanitizer) are used. *(SUGGESTED)*
-  - *Note:* N/A — Justification: project is written in Go (memory-safe), with CGo used only for the SQLite driver.
+- [ ] 🔵 **dynamic_analysis_unsafe** — If the project uses memory-unsafe languages (C/C++), memory safety tools (Valgrind, AddressSanitizer) are used. *(SUGGESTED)*
+  - *Note:* The application code is Go (memory-safe), but `github.com/mattn/go-sqlite3` links C code via CGo, which Go's memory safety doesn't cover. No Valgrind/AddressSanitizer is currently used against that path — marking unmet rather than N/A.
 
 ---
 
@@ -240,6 +241,7 @@
 > Add domain-specific notes here for Web3, Full-Stack, or AI projects.
 
 ### Backend / API Notes
+
 - This server never decrypts or inspects message payloads — all `crypto_*` criteria are N/A for the payload path itself.
 - The optional `security.api_key` feature is a credential the server *does* handle — `crypto_password_storage`/`crypto_random` are left unmet pending a maintainer code review of how the key is generated/compared, rather than assumed N/A.
 - No `_test.go` files exist yet — the biggest Quality gap. Recommend prioritizing tests for the message CRUD handlers and rate limiter before the next release.

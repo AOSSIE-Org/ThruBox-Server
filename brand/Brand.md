@@ -1,6 +1,6 @@
 # ThruBox Brand Kit
 
-This folder is the canonical source for ThruBox's visual identity: logos, favicons/icons, and color palette. All assets referenced below live in this `brand/` folder.
+This folder is the canonical source for ThruBox's visual identity: logos, favicons/icons, and color palette. All assets referenced below live in this `brand/` folder. `README.md` embeds its own copies of the two logo SVGs under `public/` — keep those in sync with the originals here if the brand mark changes.
 
 ## Logo
 
@@ -24,7 +24,7 @@ Generated from `thrubox-logo.svg` at the standard sizes used across browsers, bo
 | [`apple-touch-icon.png`](./apple-touch-icon.png) | 180×180 | iOS home screen |
 | [`icon-512.png`](./icon-512.png) | 512×512 | PWA manifest / app icon |
 
-This server has no bundled web UI (it's a headless REST API), so these assets aren't wired into any HTML — they're provided as the canonical brand exports for use in dashboards, status pages, or documentation sites built around this server.
+This server itself has no bundled web UI (it's a headless REST API) — the favicons/icons here aren't consumed by any application HTML, only by the repo's own README and any external dashboards, status pages, or documentation sites built around this server.
 
 ## Color Palette
 

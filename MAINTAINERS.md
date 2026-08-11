@@ -19,3 +19,7 @@ This document lists the individuals fulfilling the key roles of [Maintainer](htt
 | Atharva | @Atharva0506        | @atharva0506        | Repository Maintenance & Merging |
 | Karn    | @kumawatkaran523    | @karankk9616        | Repository Maintenance & Merging |
 | Aditya  | @adityabhattad2021  | @adityabhattad      | Repository Maintenance & Merging |
+
+## Ideators
+
+_No Ideators are currently assigned to this repository._
