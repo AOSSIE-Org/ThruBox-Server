@@ -31,3 +31,4 @@ Thumbs.db
 
 # Build / Release
 dist/
+relay
