@@ -17,7 +17,7 @@ This document lists the individuals fulfilling the key roles of [Maintainer](htt
 | Name    | GitHub Username    | Discord Username | Area / Focus                      |
 | ------- | ------------------- | ------------------ | ----------------------------------- |
 | Atharva | @Atharva0506        | @atharva0506        | Repository Maintenance & Merging |
-| Karn    | @kumawatkaran523    | @karankk9616        | Repository Maintenance & Merging |
+| Karan   | @kumawatkaran523    | @karankk9616        | Repository Maintenance & Merging |
 | Aditya  | @adityabhattad2021  | @adityabhattad      | Repository Maintenance & Merging |
 
 ## Ideators
