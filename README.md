@@ -182,6 +182,14 @@ The server starts on `http://localhost:3000` with a SQLite database that auto-cr
 docker compose up -d
 ```
 
+#### 5. Run Tests
+
+```bash
+go test ./...
+```
+
+> No test files exist in the repository yet — this is the standard command to run once tests are added. See `CONTRIBUTING.md` before submitting a PR that adds functionality without tests.
+
 ### Configuration
 
 Edit `config.yaml` or use environment variables:
@@ -208,8 +216,7 @@ Thank you for considering contributing to this project! Contributions are highly
 
 ## ✨ Maintainers
 
-- [Bruno](https://github.com/Zahnentferner)
-- [Atharva](https://github.com/Atharva0506)
+See [MAINTAINERS.md](./MAINTAINERS.md) for the full list of Mentors and Maintainers for this repository.
 
 ---
 

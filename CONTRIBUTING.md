@@ -1,4 +1,4 @@
-# Contributing to TODO: Project Name
+# Contributing to ThruBox Server
 
 ⭐ First off, thank you for considering contributing to this project! ⭐
 
@@ -9,7 +9,7 @@ We welcome contributions from everyone. By participating in this project, you ag
 **All project communication MUST happen on Discord. We do not pay attention to GitHub notifications.**
 
 - Join our [Discord server](https://discord.gg/hjUhu33uAn) before starting any work
-- Post your PR/issue updates in the relevant Discord channel (**MANDATORY**)
+- Post your PR/issue updates in the [#thrubox channel](https://discord.com/channels/995968619034984528/1525382676964446258) (**MANDATORY**)
 - All discussions, questions, and updates should be on Discord
 - GitHub is for code only - Discord is for communication
 
@@ -68,36 +68,42 @@ What we expect:
 
 ### Prerequisites
 
-TODO: List prerequisites specific to your project
+- Go 1.23+ with CGo enabled (required for SQLite)
+- GCC (for compiling `go-sqlite3`)
+- Docker (optional, for containerized deployment)
 
 ### Setup
 
 1. **Fork the Repository**
+
    ```bash
    # Click the 'Fork' button at the top right of this page
    ```
 
 2. **Clone Your Fork**
+
    ```bash
-   git clone https://github.com/YOUR_USERNAME/TODO.git
-   cd TODO
+   git clone https://github.com/YOUR_USERNAME/ThruBox-Server.git
+   cd ThruBox-Server
    ```
 
 3. **Add Upstream Remote**
+
    ```bash
-   git remote add upstream https://github.com/AOSSIE-Org/TODO.git
+   git remote add upstream https://github.com/AOSSIE-Org/ThruBox-Server.git
    ```
 
 4. **Install Dependencies**
+
    ```bash
-   npm install
-   # or yarn install
-   # or pnpm install
+   go mod download
    ```
 
 5. **Run the Project**
+
    ```bash
-   npm run dev
+   go build -o relay-server ./cmd/relay
+   ./relay-server
    ```
 
 ## 🔄 Development Workflow
@@ -121,13 +127,13 @@ git checkout -b fix/your-bug-fix
 
 ### 3. Test Your Changes
 
-TODO: Add project-specific testing instructions
-
 ```bash
-npm test
-# or
-npm run lint
+go build ./...   # make sure it compiles
+go vet ./...     # static checks
+go test ./...    # run the test suite
 ```
+
+The repository doesn't have test files yet — if you're adding new functionality, please add `_test.go` coverage for it alongside your change.
 
 ### 4. Commit Your Changes
 
@@ -210,7 +216,7 @@ Steps to test the changes
 
 ### After Submission
 
-- Post your PR in the project's Discord channel for visibility(**IMPORTANT**)
+- Post your PR in the [#thrubox channel](https://discord.com/channels/995968619034984528/1525382676964446258) for visibility(**IMPORTANT**)
 - Respond to review comments promptly
 - Make requested changes in new commits
 - Be patient - maintainers will review when available
@@ -223,7 +229,7 @@ Steps to test the changes
 
 ## 📝 Code Style Guidelines
 
-TODO: Add project-specific code style guidelines
+This is a Go project that keeps runtime dependencies minimal: `net/http` from the standard library plus `github.com/mattn/go-sqlite3`, `github.com/google/uuid`, and `gopkg.in/yaml.v3` (see `go.mod`). Discuss any new runtime dependency in an issue first. Run `gofmt`/`go vet` before committing, and keep the storage layer parameterized (no string-concatenated SQL) to avoid injection issues.
 
 ### General Guidelines
 
@@ -538,4 +544,4 @@ If you encounter issues not covered here:
 - Check for existing PRs before starting to avoid duplication, as there might PRs that didn't mention the related issue
 
 
-Thank you for contributing to TODO! Your efforts help make this project better for everyone. 🚀
+Thank you for contributing to ThruBox Server! Your efforts help make this project better for everyone. 🚀
