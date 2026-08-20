@@ -188,7 +188,7 @@ docker compose up -d
 go test ./...
 ```
 
-> No test files exist in the repository yet — this is the standard command to run once tests are added. See `CONTRIBUTING.md` before submitting a PR that adds functionality without tests.
+> Tests live beside the code they cover. See `CONTRIBUTING.md` before submitting a PR that adds functionality without tests.
 
 ### Configuration
 

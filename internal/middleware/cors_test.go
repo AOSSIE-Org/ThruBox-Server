@@ -318,7 +318,7 @@ func TestCORS_EmptyStringOriginsAreIgnored(t *testing.T) {
 func TestCORS_PreflightSurvivesAPIKeyAuth(t *testing.T) {
 	reached := false
 
-	var h http.Handler = okHandler(&reached)
+	h := okHandler(&reached)
 	h = APIKeyAuth("secret-key")(h)
 	h = CORS([]string{"https://app.example.com"}, true)(h)
 
@@ -338,7 +338,7 @@ func TestCORS_PreflightSurvivesAPIKeyAuth(t *testing.T) {
 func TestCORS_ActualRequestStillNeedsTheAPIKey(t *testing.T) {
 	reached := false
 
-	var h http.Handler = okHandler(&reached)
+	h := okHandler(&reached)
 	h = APIKeyAuth("secret-key")(h)
 	h = CORS([]string{"https://app.example.com"}, true)(h)
 

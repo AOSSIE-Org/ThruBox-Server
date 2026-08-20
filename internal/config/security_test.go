@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -108,6 +110,26 @@ func TestValidateAllowedOrigins(t *testing.T) {
 			wantErr: "no path component",
 		},
 		{
+			name:    "an empty scheme is rejected",
+			origins: []string{"://app.example.com"},
+			wantErr: "must be a full origin",
+		},
+		{
+			name:    "an empty host is rejected",
+			origins: []string{"https://"},
+			wantErr: "missing host",
+		},
+		{
+			name:    "a scheme-only entry with a slash is rejected",
+			origins: []string{"https:///"},
+			wantErr: "missing host",
+		},
+		{
+			name:    "a lone separator is rejected",
+			origins: []string{"://"},
+			wantErr: "must be a full origin",
+		},
+		{
 			name:    "a trailing slash is tolerated",
 			origins: []string{"https://app.example.com/"},
 		},
@@ -145,5 +167,107 @@ func TestAllowedOrigins_InvalidEnvIsRejectedByLoad(t *testing.T) {
 
 	if _, err := Load("does-not-exist.yaml"); err == nil {
 		t.Fatal("Load() error = nil, want a validation error for a scheme-less origin")
+	}
+}
+
+// writeOriginConfig drops a YAML file in a temp dir and returns its path.
+// Named distinctly from the helpers in the other config test files so the
+// package still compiles once those land alongside this one.
+func writeOriginConfig(t *testing.T, body string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatalf("writing temp config: %v", err)
+	}
+	return path
+}
+
+// TestAllowedOrigins_FromYAML covers the documented primary route. The
+// environment variable is the fallback; config.yaml is what the README and the
+// shipped config actually show, so it needs coverage of its own.
+func TestAllowedOrigins_FromYAML(t *testing.T) {
+	resetOriginEnv(t)
+
+	path := writeOriginConfig(t, `
+security:
+  allowed_origins:
+    - "https://a.example.com"
+    - "https://b.example.com"
+`)
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	want := []string{"https://a.example.com", "https://b.example.com"}
+	if len(cfg.Security.AllowedOrigins) != len(want) {
+		t.Fatalf("AllowedOrigins = %v, want %v", cfg.Security.AllowedOrigins, want)
+	}
+	for i := range want {
+		if cfg.Security.AllowedOrigins[i] != want[i] {
+			t.Errorf("AllowedOrigins[%d] = %q, want %q", i, cfg.Security.AllowedOrigins[i], want[i])
+		}
+	}
+}
+
+// TestAllowedOrigins_EnvReplacesYAMLList guards a specific footgun: the
+// environment override must REPLACE the YAML list, not append to it.
+// Unmarshalling into a pre-populated struct makes slice merging an easy
+// accident, and appending would silently keep serving an origin the operator
+// thought they had removed.
+func TestAllowedOrigins_EnvReplacesYAMLList(t *testing.T) {
+	resetOriginEnv(t)
+
+	path := writeOriginConfig(t, `
+security:
+  allowed_origins:
+    - "https://from-file.example.com"
+`)
+	t.Setenv("RELAY_SECURITY_ALLOWED_ORIGINS", "https://from-env.example.com")
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if len(cfg.Security.AllowedOrigins) != 1 {
+		t.Fatalf("AllowedOrigins = %v, want exactly the env value (env must replace, not append)",
+			cfg.Security.AllowedOrigins)
+	}
+	if got, want := cfg.Security.AllowedOrigins[0], "https://from-env.example.com"; got != want {
+		t.Errorf("AllowedOrigins[0] = %q, want %q", got, want)
+	}
+}
+
+// TestAllowedOrigins_YAMLDefaultsToEmpty confirms a config file that says
+// nothing about CORS leaves it switched off.
+func TestAllowedOrigins_YAMLDefaultsToEmpty(t *testing.T) {
+	resetOriginEnv(t)
+
+	path := writeOriginConfig(t, "server:\n  port: 3000\n")
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if len(cfg.Security.AllowedOrigins) != 0 {
+		t.Errorf("AllowedOrigins = %v, want empty", cfg.Security.AllowedOrigins)
+	}
+}
+
+// TestAllowedOrigins_MalformedYAMLEntryFailsStartup pairs with the Validate
+// table: a bad entry in the file must fail Load, not just Validate in isolation.
+func TestAllowedOrigins_MalformedYAMLEntryFailsStartup(t *testing.T) {
+	resetOriginEnv(t)
+
+	path := writeOriginConfig(t, `
+security:
+  allowed_origins:
+    - "https://"
+`)
+
+	if _, err := Load(path); err == nil {
+		t.Fatal("Load() error = nil, want a validation error for an origin with no host")
 	}
 }

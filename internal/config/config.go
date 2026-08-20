@@ -207,16 +207,21 @@ func validateAllowedOrigins(origins []string) error {
 			continue
 		}
 		hasSpecific = true
-		if !strings.Contains(o, "://") {
+
+		scheme, rest, found := strings.Cut(o, "://")
+		if !found || scheme == "" {
 			return fmt.Errorf(
 				"invalid allowed_origins entry %q: must be a full origin such as https://app.example.com", o)
 		}
-		if strings.Contains(strings.TrimSuffix(o, "/"), "/") {
-			after := strings.SplitN(o, "://", 2)[1]
-			if strings.Contains(strings.TrimSuffix(after, "/"), "/") {
-				return fmt.Errorf(
-					"invalid allowed_origins entry %q: an origin has no path component", o)
-			}
+		// A single trailing slash is tolerated; anything more is a path.
+		host := strings.TrimSuffix(rest, "/")
+		if host == "" {
+			return fmt.Errorf(
+				"invalid allowed_origins entry %q: missing host", o)
+		}
+		if strings.Contains(host, "/") {
+			return fmt.Errorf(
+				"invalid allowed_origins entry %q: an origin has no path component", o)
 		}
 	}
 
