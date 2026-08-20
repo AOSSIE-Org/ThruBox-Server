@@ -188,7 +188,7 @@ docker compose up -d
 go test ./...
 ```
 
-> Tests live beside the code they cover (for example `internal/config/config_test.go`). See `CONTRIBUTING.md` before submitting a PR that adds functionality without tests.
+> Tests live beside the code they cover. See `CONTRIBUTING.md` before submitting a PR that adds functionality without tests.
 
 ### Configuration
 
