@@ -197,7 +197,7 @@ Edit `config.yaml` or use environment variables:
 | Setting | YAML Key | Env Variable | Default |
 |---------|----------|-------------|---------|
 | Server port | `server.port` | `RELAY_SERVER_PORT` | `3000` |
-| Server port (fallback) | — | `PORT` | _unset_ — used only when `RELAY_SERVER_PORT` is not set |
+| Server port (fallback) | — | `PORT` | _unset_ — used when `RELAY_SERVER_PORT` is unset **or empty** |
 | Server host | `server.host` | `RELAY_SERVER_HOST` | `0.0.0.0` |
 | Storage path | `storage.path` | `RELAY_STORAGE_PATH` | `./data/relay.db` |
 | Message TTL | `messages.ttl_days` | `RELAY_MESSAGES_TTL_DAYS` | `7` (0 = forever) |
@@ -208,7 +208,8 @@ Edit `config.yaml` or use environment variables:
 > **Deploying to a managed platform?** Render, Railway, Heroku and Cloud Run
 > inject a `PORT` variable and expect the process to bind to it. ThruBox reads
 > it automatically, so no extra configuration is needed. `RELAY_SERVER_PORT`
-> still takes precedence when both are set.
+> still takes precedence whenever it is set to a non-empty value, so setting it
+> to `""` (as an empty `docker-compose` entry does) falls through to `PORT`.
 
 ---
 
