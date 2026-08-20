@@ -198,7 +198,7 @@ docker run -v ./my-config.yaml:/etc/relay/config.yaml:ro ghcr.io/aossie-org/thru
 
 If no config file is found at the resolved path the server logs a warning at
 startup and runs on built-in defaults rather than failing. Precedence is
-**built-in defaults → `config.yaml` → environment variables**, so an
+**built-in defaults → the selected YAML file → environment variables**, so an
 environment variable always wins over the file.
 
 #### 5. Run Tests

@@ -78,6 +78,33 @@ func TestLoad_MissingFileUsesDefaults(t *testing.T) {
 	}
 }
 
+// TestLoad_MissingFileStillAppliesEnvOverrides covers the second, easy-to-miss
+// applyEnvOverrides call site. Load has one in the missing-file branch and one
+// after a successful parse, so "no file, but env vars set" is its own path --
+// and it is the normal case for a container started with no config mounted.
+func TestLoad_MissingFileStillAppliesEnvOverrides(t *testing.T) {
+	clearEnvOverrides(t)
+
+	t.Setenv("RELAY_SERVER_PORT", "8123")
+	t.Setenv("RELAY_SECURITY_API_KEY", "from-env")
+
+	path := filepath.Join(t.TempDir(), "does-not-exist.yaml")
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil", err)
+	}
+	if cfg.Server.Port != 8123 {
+		t.Errorf("Server.Port = %d, want 8123 (env ignored on the missing-file path)", cfg.Server.Port)
+	}
+	if cfg.Security.APIKey != "from-env" {
+		t.Errorf("Security.APIKey = %q, want \"from-env\"", cfg.Security.APIKey)
+	}
+	if cfg.Source != "" {
+		t.Errorf("Source = %q, want empty string for a missing file", cfg.Source)
+	}
+}
+
 // TestLoad_EnvOverridesFile pins the precedence order:
 // defaults -> file -> environment.
 func TestLoad_EnvOverridesFile(t *testing.T) {
