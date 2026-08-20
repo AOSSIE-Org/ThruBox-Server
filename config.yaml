@@ -13,3 +13,10 @@ messages:
 security:
   rate_limit: 30   # Requests per minute per IP
   api_key: ""      # Optional: if set, all requests must include X-API-Key header
+
+  # CORS allowlist for browsers calling the relay directly (no reverse proxy).
+  # Empty (the default) serves no CORS headers at all, unchanged from before.
+  # Use ["*"] to allow any origin. "*" cannot be mixed with specific origins.
+  #   allowed_origins:
+  #     - "https://app.example.com"
+  allowed_origins: []

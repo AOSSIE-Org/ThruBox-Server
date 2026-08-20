@@ -34,6 +34,7 @@ func main() {
 		"storage_path", cfg.Storage.Path,
 		"ttl_days", cfg.Messages.TTLDays,
 		"rate_limit", cfg.Security.RateLimit,
+		"allowed_origins", cfg.Security.AllowedOrigins,
 	)
 
 	// Initialize storage
@@ -70,13 +71,24 @@ func main() {
 	mux.HandleFunc("GET /api/messages/{address}", msgHandler.HandleGetByAddress)
 	mux.HandleFunc("DELETE /api/messages/{id}", msgHandler.HandleDelete)
 
-	// Apply middleware chain: API Key → Rate Limiter → Router
+	// Apply middleware chain: CORS → API Key → Rate Limiter → Router
+	//
+	// CORS is outermost on purpose. A browser preflight is an OPTIONS request
+	// with no custom headers, so it carries no X-API-Key; if APIKeyAuth ran
+	// first every preflight would 401 and the real request would never be
+	// sent. CORS answers the preflight itself and lets everything else fall
+	// through to authentication as normal.
 	rateLimiter := middleware.NewRateLimiter(cfg.Security.RateLimit)
 	defer rateLimiter.Stop()
 
 	var h http.Handler = mux
 	h = rateLimiter.Middleware(h)
 	h = middleware.APIKeyAuth(cfg.Security.APIKey)(h)
+	h = middleware.CORS(cfg.Security.AllowedOrigins, cfg.Security.APIKey != "")(h)
+
+	if len(cfg.Security.AllowedOrigins) > 0 {
+		slog.Info("CORS enabled", "allowed_origins", cfg.Security.AllowedOrigins)
+	}
 
 	// Create HTTP server
 	srv := &http.Server{
