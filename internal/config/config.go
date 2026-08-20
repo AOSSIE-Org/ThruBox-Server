@@ -97,11 +97,18 @@ func Load(path string) (*Config, error) {
 // applyEnvOverrides checks for environment variables and overrides
 // the corresponding config values if set.
 func applyEnvOverrides(cfg *Config) {
-	if v := os.Getenv("RELAY_SERVER_PORT"); v != "" {
-		if port, err := strconv.Atoi(v); err == nil {
+	// Port resolution: RELAY_SERVER_PORT is authoritative. PORT is only a
+	// fallback, for managed platforms (Render, Railway, Heroku, Cloud Run)
+	// that inject it and expect the process to bind to it.
+	portVar, portVal := "RELAY_SERVER_PORT", os.Getenv("RELAY_SERVER_PORT")
+	if portVal == "" {
+		portVar, portVal = "PORT", os.Getenv("PORT")
+	}
+	if portVal != "" {
+		if port, err := strconv.Atoi(portVal); err == nil {
 			cfg.Server.Port = port
 		} else {
-			log.Printf("warning: invalid RELAY_SERVER_PORT=%q, using default", v)
+			log.Printf("warning: invalid %s=%q, using default", portVar, portVal)
 		}
 	}
 

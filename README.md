@@ -188,7 +188,7 @@ docker compose up -d
 go test ./...
 ```
 
-> No test files exist in the repository yet — this is the standard command to run once tests are added. See `CONTRIBUTING.md` before submitting a PR that adds functionality without tests.
+> Tests live beside the code they cover (for example `internal/config/config_test.go`). See `CONTRIBUTING.md` before submitting a PR that adds functionality without tests.
 
 ### Configuration
 
@@ -197,12 +197,18 @@ Edit `config.yaml` or use environment variables:
 | Setting | YAML Key | Env Variable | Default |
 |---------|----------|-------------|---------|
 | Server port | `server.port` | `RELAY_SERVER_PORT` | `3000` |
+| Server port (fallback) | — | `PORT` | _unset_ — used only when `RELAY_SERVER_PORT` is not set |
 | Server host | `server.host` | `RELAY_SERVER_HOST` | `0.0.0.0` |
 | Storage path | `storage.path` | `RELAY_STORAGE_PATH` | `./data/relay.db` |
 | Message TTL | `messages.ttl_days` | `RELAY_MESSAGES_TTL_DAYS` | `7` (0 = forever) |
 | Max payload | `messages.max_payload_size` | `RELAY_MESSAGES_MAX_PAYLOAD_SIZE` | `524288` (500KB) |
 | Rate limit | `security.rate_limit` | `RELAY_SECURITY_RATE_LIMIT` | `30` req/min/IP |
 | API key | `security.api_key` | `RELAY_SECURITY_API_KEY` | `` (disabled) |
+
+> **Deploying to a managed platform?** Render, Railway, Heroku and Cloud Run
+> inject a `PORT` variable and expect the process to bind to it. ThruBox reads
+> it automatically, so no extra configuration is needed. `RELAY_SERVER_PORT`
+> still takes precedence when both are set.
 
 ---
 
