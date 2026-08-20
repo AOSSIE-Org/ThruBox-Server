@@ -15,20 +15,41 @@ import (
 	"github.com/AOSSIE-Org/ThruBox-Server/internal/store"
 )
 
+// defaultConfigPath is the config file location used when RELAY_CONFIG_PATH
+// is not set. It is relative, so it resolves against the working directory.
+const defaultConfigPath = "config.yaml"
+
 func main() {
 	// Set up structured logging
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	})))
 
-	// Load configuration
-	cfg, err := config.Load("config.yaml")
+	// Load configuration. The path is overridable so the same binary works
+	// from a source checkout (./config.yaml) and from the container image,
+	// where the file lives at /etc/relay/config.yaml.
+	configPath := os.Getenv("RELAY_CONFIG_PATH")
+	if configPath == "" {
+		configPath = defaultConfigPath
+	}
+
+	cfg, err := config.Load(configPath)
 	if err != nil {
-		slog.Error("failed to load configuration", "error", err)
+		slog.Error("failed to load configuration", "error", err, "config_file", configPath)
 		os.Exit(1)
 	}
 
+	configSource := cfg.Source
+	if configSource == "" {
+		configSource = "(none)"
+		slog.Warn("no config file found, falling back to built-in defaults",
+			"looked_for", configPath,
+			"hint", "set RELAY_CONFIG_PATH to point at your config.yaml",
+		)
+	}
+
 	slog.Info("configuration loaded",
+		"config_file", configSource,
 		"port", cfg.Server.Port,
 		"storage_driver", cfg.Storage.Driver,
 		"storage_path", cfg.Storage.Path,

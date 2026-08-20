@@ -182,6 +182,25 @@ The server starts on `http://localhost:3000` with a SQLite database that auto-cr
 docker compose up -d
 ```
 
+ThruBox reads `config.yaml` from the working directory. Set `RELAY_CONFIG_PATH`
+to load it from anywhere else:
+
+```bash
+RELAY_CONFIG_PATH=/etc/relay/config.yaml ./relay-server
+```
+
+The image sets this for you and ships the file at `/etc/relay/config.yaml`, so
+you can mount your own over it:
+
+```bash
+docker run -v ./my-config.yaml:/etc/relay/config.yaml:ro ghcr.io/aossie-org/thrubox-server
+```
+
+If no config file is found at the resolved path the server logs a warning at
+startup and runs on built-in defaults rather than failing. Precedence is
+**built-in defaults → `config.yaml` → environment variables**, so an
+environment variable always wins over the file.
+
 #### 5. Run Tests
 
 ```bash
@@ -196,6 +215,7 @@ Edit `config.yaml` or use environment variables:
 
 | Setting | YAML Key | Env Variable | Default |
 |---------|----------|-------------|---------|
+| Config file path | — | `RELAY_CONFIG_PATH` | `config.yaml` (`/etc/relay/config.yaml` in the Docker image) |
 | Server port | `server.port` | `RELAY_SERVER_PORT` | `3000` |
 | Server host | `server.host` | `RELAY_SERVER_HOST` | `0.0.0.0` |
 | Storage path | `storage.path` | `RELAY_STORAGE_PATH` | `./data/relay.db` |
