@@ -39,6 +39,11 @@ RUN mkdir -p /data && chown -R relay:relay /data
 # Set default storage path to the mounted volume
 ENV RELAY_STORAGE_PATH=/data/relay.db
 
+# Point the binary at the config file copied in above. Without this the
+# process starts from / and silently falls back to built-in defaults,
+# ignoring the bundled config.yaml entirely.
+ENV RELAY_CONFIG_PATH=/etc/relay/config.yaml
+
 USER relay
 
 EXPOSE 3000

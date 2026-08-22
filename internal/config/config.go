@@ -15,6 +15,11 @@ type Config struct {
 	Storage  StorageConfig  `yaml:"storage"`
 	Messages MessageConfig  `yaml:"messages"`
 	Security SecurityConfig `yaml:"security"`
+
+	// Source is the path of the YAML file this config was read from, or the
+	// empty string when no file was found and the built-in defaults are in
+	// use. It is populated by Load and is never read from the YAML itself.
+	Source string `yaml:"-"`
 }
 
 // ServerConfig holds HTTP server settings.
@@ -73,7 +78,8 @@ func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// No config file — use defaults + env overrides
+			// No config file — use defaults + env overrides.
+			// Source stays empty so the caller can report that fact.
 			applyEnvOverrides(cfg)
 			if err := cfg.Validate(); err != nil {
 				return nil, fmt.Errorf("invalid default configuration: %w", err)
@@ -87,6 +93,7 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("parsing config file: %w", err)
 	}
 
+	cfg.Source = path
 	applyEnvOverrides(cfg)
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
