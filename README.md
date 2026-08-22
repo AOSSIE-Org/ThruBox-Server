@@ -224,6 +224,54 @@ Edit `config.yaml` or use environment variables:
 | Max payload | `messages.max_payload_size` | `RELAY_MESSAGES_MAX_PAYLOAD_SIZE` | `524288` (500KB) |
 | Rate limit | `security.rate_limit` | `RELAY_SECURITY_RATE_LIMIT` | `30` req/min/IP |
 | API key | `security.api_key` | `RELAY_SECURITY_API_KEY` | `` (disabled) |
+| CORS origins | `security.allowed_origins` | `RELAY_SECURITY_ALLOWED_ORIGINS` | `` (CORS disabled) |
+
+### CORS
+
+By default the relay serves **no CORS headers**, so a browser calling it from
+another origin is blocked at the preflight. There are two ways to run a
+browser client:
+
+**1. Reverse proxy (no relay configuration).** Put the relay behind a
+same-origin path in your own app — a Vercel rewrite, an nginx `location`, a
+Vite `server.proxy` entry. The request is never cross-origin, so CORS never
+applies. This is the setup the ThruBox client docs assume.
+
+**2. Direct calls with an origin allowlist.** List the origins you want to
+serve and browsers can call the relay directly, no proxy needed:
+
+```yaml
+security:
+  allowed_origins:
+    - "https://app.example.com"
+    - "http://localhost:5173"
+```
+
+or via the environment, comma-separated:
+
+```bash
+RELAY_SECURITY_ALLOWED_ORIGINS="https://app.example.com,http://localhost:5173"
+```
+
+When an origin is allowed, the relay answers preflights and returns
+`Access-Control-Allow-Origin` for that origin, `Access-Control-Allow-Methods:
+GET, POST, DELETE, OPTIONS`, and `Access-Control-Allow-Headers: Content-Type`
+— plus `X-API-Key` when `security.api_key` is set.
+
+Notes:
+
+- Entries must be full origins (`https://host[:port]`), with no path. A bare
+  hostname or a URL with a path is rejected at startup rather than silently
+  never matching.
+- `"*"` allows any origin. It cannot be combined with specific origins, and it
+  is a poor fit for a relay with no API key configured — anything on the web
+  can then read and write messages from a browser.
+- Credentialed CORS is not supported. The relay authenticates with the
+  `X-API-Key` header, not cookies, so `Access-Control-Allow-Credentials` is
+  never sent.
+- An allowlisted origin still has to satisfy `security.api_key` and the rate
+  limiter. CORS controls which origins a browser will let read a response; it
+  is not authentication.
 
 > **Deploying to a managed platform?** Render, Railway, Heroku and Cloud Run
 > inject a `PORT` variable and expect the process to bind to it. ThruBox reads

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -44,6 +45,9 @@ type MessageConfig struct {
 type SecurityConfig struct {
 	RateLimit int    `yaml:"rate_limit"`
 	APIKey    string `yaml:"api_key"`
+	// AllowedOrigins is the CORS allowlist. Empty (the default) serves no
+	// CORS headers at all. "*" allows any origin.
+	AllowedOrigins []string `yaml:"allowed_origins"`
 }
 
 // Default returns a Config with sensible defaults.
@@ -65,6 +69,8 @@ func Default() *Config {
 		Security: SecurityConfig{
 			RateLimit: 30,
 			APIKey:    "",
+			// No origins: CORS stays off unless explicitly configured.
+			AllowedOrigins: nil,
 		},
 	}
 }
@@ -158,6 +164,24 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("RELAY_SECURITY_API_KEY"); v != "" {
 		cfg.Security.APIKey = v
 	}
+
+	if v := os.Getenv("RELAY_SECURITY_ALLOWED_ORIGINS"); v != "" {
+		cfg.Security.AllowedOrigins = splitOrigins(v)
+	}
+}
+
+// splitOrigins parses a comma-separated origin list from an environment
+// variable, trimming spaces and dropping empty entries so that values like
+// "https://a.example, https://b.example," behave as expected.
+func splitOrigins(v string) []string {
+	parts := strings.Split(v, ",")
+	origins := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			origins = append(origins, p)
+		}
+	}
+	return origins
 }
 
 // Validate checks the configuration values for validity.
@@ -173,6 +197,50 @@ func (c *Config) Validate() error {
 	}
 	if c.Security.RateLimit < 0 {
 		return fmt.Errorf("invalid rate_limit: %d", c.Security.RateLimit)
+	}
+	if err := validateAllowedOrigins(c.Security.AllowedOrigins); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateAllowedOrigins rejects configurations that would not do what the
+// operator expects: a wildcard mixed with specific origins (the wildcard
+// silently wins, making the list misleading), and entries that are not
+// scheme-qualified origins, which can never match a browser Origin header.
+func validateAllowedOrigins(origins []string) error {
+	hasWildcard, hasSpecific := false, false
+
+	for _, o := range origins {
+		o = strings.TrimSpace(o)
+		if o == "" {
+			continue
+		}
+		if o == "*" {
+			hasWildcard = true
+			continue
+		}
+		hasSpecific = true
+
+		scheme, rest, found := strings.Cut(o, "://")
+		if !found || scheme == "" {
+			return fmt.Errorf(
+				"invalid allowed_origins entry %q: must be a full origin such as https://app.example.com", o)
+		}
+		// A single trailing slash is tolerated; anything more is a path.
+		host := strings.TrimSuffix(rest, "/")
+		if host == "" {
+			return fmt.Errorf(
+				"invalid allowed_origins entry %q: missing host", o)
+		}
+		if strings.Contains(host, "/") {
+			return fmt.Errorf(
+				"invalid allowed_origins entry %q: an origin has no path component", o)
+		}
+	}
+
+	if hasWildcard && hasSpecific {
+		return fmt.Errorf(`invalid allowed_origins: "*" cannot be combined with specific origins`)
 	}
 	return nil
 }
