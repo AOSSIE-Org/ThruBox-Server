@@ -32,3 +32,7 @@ Thumbs.db
 # Build / Release
 dist/
 relay
+
+# Unremediated security review reports — private until findings are closed
+# out by the security-remediation skill, which publishes to security-reviews/
+unremediated-security-reviews/
