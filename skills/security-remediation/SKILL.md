@@ -107,11 +107,12 @@ from the user or from a commit you showed them and they confirmed.
 Resolve the commit link format first: run `git remote get-url origin` (or
 `git remote show origin`), normalize it to an `https://` URL (strip a
 `git@host:` SSH prefix to `https://host/`, drop a trailing `.git`, and
-strip any embedded userinfo such as `user:token@` — never let credentials
-reach a report that gets published). Build links as
-`<https-remote>/commit/<full-hash>`. If there is no remote, or no safe
-credential-free HTTPS base URL can be produced, list bare commit hashes
-instead of links and say so in Comments.
+strip any embedded userinfo such as `user:token@`). Treat a normalized URL
+that still has a query string or a fragment as unsafe too — either can
+carry a credential or token — and fall back to bare hashes for it. Build
+links as `<https-remote>/commit/<full-hash>`. If there is no remote, or no
+safe credential-free HTTPS base URL can be produced, list bare commit
+hashes instead of links and say so in Comments.
 
 Use this exact structure:
 
@@ -162,21 +163,46 @@ later.
    `sec_review_2026-09-22T14-03-00Z_5df9641.md`) and derive
    `sec_review_2026-09-22T14-03-00Z_5df9641_remediations.md` — same
    name, `_remediations` suffix before `.md`.
-2. If **every** finding from Step 2 now has either a confirmed remediation
-   or a user-provided non-remediation explanation:
-   - Create `security-reviews/` at the repo root if it doesn't exist.
-   - Move (not copy) both `<source-report>` — from wherever it actually
-     is, per Step 1, not assumed to be `unremediated-security-reviews/`
-     — and the new remediations file, into `security-reviews/`. Use
-     `git mv` if `git status` shows `<source-report>` already tracked,
-     otherwise plain `mv`.
-   - Confirm neither file still exists at its original location
-     afterward.
-3. If any finding still lacks a resolution (the user wasn't ready to
-   explain it yet, or remediation is still in progress):
-   - Save the remediations file next to `<source-report>` instead (do not
-     publish either file).
-   - Clearly list which finding(s) are still blocking publication.
+2. Always write the remediations file to `unremediated-security-reviews/`
+   first, regardless of where `<source-report>` lives. Never write it
+   next to an arbitrary source report instead: that location may be
+   tracked, and an incomplete draft can then enter a commit and expose
+   unresolved-finding details — including why they weren't fixed —
+   before anyone has agreed to publish them.
+3. Note whether `<source-report>` is already inside `security-reviews/`
+   (the user named an already-published report in Step 1) — call this
+   `already-published`. It changes both outcomes below.
+4. If **every** finding from Step 2 now has either a confirmed remediation
+   or a user-provided non-remediation explanation, publication is
+   possible — but don't do it silently. Name both files and list any
+   findings that will be published as "not remediated," with their
+   explanations, and ask the user to explicitly approve publication
+   before moving anything.
+   - If the user does not approve: leave the remediations file under
+     `unremediated-security-reviews/`. If `already-published`, the
+     source report simply stays in `security-reviews/` where it already
+     was — do not touch it. Say why publication is on hold.
+   - If the user approves and `already-published`: check whether the
+     remediations file's destination in `security-reviews/` already
+     exists. If it does, stop and ask the user how to resolve the
+     collision. Otherwise move only the remediations file from
+     `unremediated-security-reviews/` into `security-reviews/` and
+     confirm it no longer exists there afterward — the source report
+     needs no move, it was already published.
+   - If the user approves and the source is not yet published: create
+     `security-reviews/` at the repo root if it doesn't exist, then
+     check both destination paths — `<source-report>`'s and the
+     remediations file's — for an existing file. If either exists, stop
+     and ask the user how to resolve the collision; never let `mv`
+     silently overwrite a previously published report. Otherwise move
+     (not copy) both files into `security-reviews/` — `git mv` for a
+     file `git status` shows already tracked, otherwise plain `mv` — and
+     confirm neither still exists at its original location.
+5. If any finding still lacks a resolution (the user wasn't ready to
+   explain it yet, or remediation is still in progress), or the user
+   didn't approve publication in step 4: leave the remediations file
+   under `unremediated-security-reviews/` and clearly list what's still
+   blocking publication. `<source-report>` is untouched either way.
 
 ## Step 7: Report to the User
 
