@@ -287,7 +287,7 @@ Notes:
 
 ## 🌐 Exposing to the Internet (Self-Hosting)
 
-When self-hosting ThruBox Server with Docker, the container runs locally and listens on port `3000` by default. To make your relay accessible to clients and client SDKs over the public internet, you should place it behind either a **reverse proxy** or a **secure tunnel**.
+When self-hosting ThruBox Server with Docker, the container runs locally and listens on port `3000` by default (as configured by `server.port` in `config.yaml` or `RELAY_SERVER_PORT`). To make your relay accessible to clients and client SDKs over the public internet, you should place it behind either a **reverse proxy** or a **secure tunnel**.
 
 ```text
 Internet Requests (HTTPS)
@@ -306,7 +306,11 @@ Internet Requests (HTTPS)
 ```
 
 > [!IMPORTANT]
-> **Security Recommendation**: Never expose the raw ThruBox container port (`3000`) directly to the public internet (`0.0.0.0:3000`). Bind the port strictly to `127.0.0.1:3000:3000` on your host so only local services (such as Nginx or `cloudflared`) can communicate with it.
+> **Port Configuration & Security**:
+> - **Default Port**: All examples below use port `3000`, the default configured by `server.port` in `config.yaml` or the `RELAY_SERVER_PORT` environment variable. If you configure a different port, you must update:
+>   1. The Docker container port mapping (e.g., `-p 127.0.0.1:<PORT>:<PORT>` or `ports: - "127.0.0.1:<PORT>:<PORT>"`).
+>   2. The reverse proxy / tunnel upstream targets (e.g., `proxy_pass http://127.0.0.1:<PORT>;` in Nginx, `service: http://localhost:<PORT>` in `config.yml`, or `URL: relay:<PORT>` in Docker Compose).
+> - **Local Binding Only**: Never expose the raw ThruBox container port directly to the public internet (`0.0.0.0:3000`). Bind the port strictly to `127.0.0.1:3000:3000` (or `127.0.0.1:<PORT>:<PORT>`) on your host so only local services (such as Nginx or `cloudflared`) can communicate with it.
 
 ---
 
@@ -319,6 +323,8 @@ Internet Requests (HTTPS)
      relay:
        build: .
        ports:
+         # Port 3000 is the default (server.port / RELAY_SERVER_PORT).
+         # If using another port, update both host and container port values.
          - "127.0.0.1:3000:3000"
        volumes:
          - relay-data:/data
@@ -333,6 +339,7 @@ Internet Requests (HTTPS)
    Or run the container using `docker run`:
 
    ```bash
+   # Note: 3000 is the default port. If configured differently via RELAY_SERVER_PORT, update -p 127.0.0.1:<PORT>:<PORT>.
    docker run -d \
      --name thrubox-relay \
      -p 127.0.0.1:3000:3000 \
@@ -340,7 +347,7 @@ Internet Requests (HTTPS)
      ghcr.io/aossie-org/thrubox-server:latest
    ```
 
-2. Confirm the server is running and healthy on `localhost:3000`:
+2. Confirm the server is running and healthy on `localhost:3000` (or your configured port):
 
    ```bash
    curl http://127.0.0.1:3000/health
@@ -406,13 +413,16 @@ server {
     client_max_body_size 10M;
 
     location / {
+        # 3000 is the default port (server.port / RELAY_SERVER_PORT).
+        # Update this upstream target if running on a custom port (e.g. http://127.0.0.1:<PORT>).
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
 
         # Forward request metadata for logging and accurate rate limiting
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # Overwrite X-Forwarded-For with $remote_addr to prevent clients from spoofing their IP to bypass rate limits
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
 
         # Proxy timeouts matching ThruBox server timeouts
@@ -427,8 +437,8 @@ server {
 
 - `server_name relay.example.com;`: Tells Nginx which domain name this server block handles. Replace `relay.example.com` with your actual domain or subdomain.
 - `client_max_body_size 10M;`: Sets the maximum allowed HTTP request body size. Nginx's default is `1M`. Since ThruBox accepts encrypted payloads up to `messages.max_payload_size` (default: 500KB, configurable), setting this prevents Nginx from rejecting valid large payloads with `413 Request Entity Too Large`.
-- `proxy_pass http://127.0.0.1:3000;`: Proxies incoming requests to the ThruBox Docker container listening on port 3000.
-- `proxy_set_header X-Real-IP` and `X-Forwarded-For`: Passes the real client IP address. ThruBox's built-in rate limiter inspects these headers so rate limits apply per client IP rather than to `127.0.0.1`.
+- `proxy_pass http://127.0.0.1:3000;`: Proxies incoming requests to the ThruBox Docker container. Note that `3000` is the default port configured by `server.port` or `RELAY_SERVER_PORT`; if you configure another port, update this upstream target (`http://127.0.0.1:<PORT>`).
+- `proxy_set_header X-Real-IP $remote_addr;` and `proxy_set_header X-Forwarded-For $remote_addr;`: Passes the real client IP address. Overwriting `X-Forwarded-For` with `$remote_addr` (rather than appending via `$proxy_add_x_forwarded_for`) ensures Nginx replaces any client-supplied `X-Forwarded-For` value, preventing callers from spoofing their IP to bypass ThruBox's rate limits or deplete other clients' quotas.
 - `proxy_set_header Host` and `X-Forwarded-Proto`: Preserves the original requested host and protocol (HTTP vs HTTPS).
 
 #### 3. Enable and Test Configuration
@@ -521,7 +531,7 @@ content-type: application/json
 
 - A free [Cloudflare account](https://dash.cloudflare.com/).
 - A domain managed by Cloudflare (nameservers pointed to Cloudflare).
-- ThruBox Server running locally on `http://localhost:3000`.
+- ThruBox Server running locally on `http://localhost:3000` (or your configured port).
 
 You can configure Cloudflare Tunnel either via the **`cloudflared` CLI on the host** or using **Docker Compose**.
 
@@ -549,7 +559,7 @@ winget install --id Cloudflare.cloudflared
 cloudflared tunnel login
 ```
 
-This command outputs an authentication link. Open it in your browser, log in to Cloudflare, and authorize your domain zone. The command will download a certificate to `~/.cloudflared/cert.pem`.
+This command outputs an authentication link. Open it in your browser, log in to Cloudflare, and authorize your domain zone. The command will download a certificate to `~/.cloudflared/cert.pem` (or `%USERPROFILE%\.cloudflared\cert.pem` on Windows).
 
 ##### 3. Create a Tunnel
 
@@ -557,18 +567,24 @@ This command outputs an authentication link. Open it in your browser, log in to 
 cloudflared tunnel create thrubox-tunnel
 ```
 
-This outputs a **Tunnel ID** (a UUID like `a1b2c3d4-e5f6-7890-abcd-ef1234567890`) and creates the credentials file at `~/.cloudflared/<TUNNEL_ID>.json`.
+This outputs a **Tunnel ID** (a UUID like `a1b2c3d4-e5f6-7890-abcd-ef1234567890`) and creates the credentials file at `~/.cloudflared/<TUNNEL_ID>.json` (or `%USERPROFILE%\.cloudflared\<TUNNEL_ID>.json` on Windows).
 
 ##### 4. Create the Configuration File
 
-Create `~/.cloudflared/config.yml` (replace `<TUNNEL_ID>`, `<YOUR_USERNAME>`, and `relay.example.com` with your actual values):
+Create the configuration file at `~/.cloudflared/config.yml` (Linux/macOS) or `%USERPROFILE%\.cloudflared\config.yml` (Windows). Replace `<TUNNEL_ID>`, `<YOUR_USERNAME>`, and `relay.example.com` with your actual values:
 
 ```yaml
 tunnel: <TUNNEL_ID>
+# Path to tunnel credentials file (use the path matching your OS):
+# Linux:   /home/<YOUR_USERNAME>/.cloudflared/<TUNNEL_ID>.json
+# macOS:   /Users/<YOUR_USERNAME>/.cloudflared/<TUNNEL_ID>.json
+# Windows: C:\Users\<YOUR_USERNAME>\.cloudflared\<TUNNEL_ID>.json
 credentials-file: /home/<YOUR_USERNAME>/.cloudflared/<TUNNEL_ID>.json
 
 ingress:
   - hostname: relay.example.com
+    # Note: 3000 is the default ThruBox port (server.port / RELAY_SERVER_PORT).
+    # Update this upstream target if running on a custom port (e.g., http://localhost:<PORT>).
     service: http://localhost:3000
   - service: http_status:404
 ```
@@ -603,9 +619,27 @@ Once verified, stop the foreground process with `Ctrl+C`.
 
 Install `cloudflared` as a system service so it automatically runs on boot:
 
+**Linux (systemd)**:
+
 ```bash
 sudo cloudflared --config /home/<YOUR_USERNAME>/.cloudflared/config.yml service install
 sudo systemctl enable --now cloudflared
+```
+
+**macOS (launchd)**:
+
+```bash
+sudo cloudflared --config /Users/<YOUR_USERNAME>/.cloudflared/config.yml service install
+sudo launchctl start com.cloudflare.cloudflared
+```
+
+**Windows (Windows Service)**:
+
+Run in an Administrator Command Prompt or PowerShell:
+
+```powershell
+cloudflared --config "C:\Users\<YOUR_USERNAME>\.cloudflared\config.yml" service install
+Start-Service cloudflared
 ```
 
 ---
@@ -620,7 +654,7 @@ If you prefer a completely containerized deployment without installing packages 
 4. In the **Public Hostname** tab, configure:
    - **Subdomain / Domain**: e.g., `relay.example.com`
    - **Service Type**: `HTTP`
-   - **URL**: `relay:3000` (this uses Docker's internal container networking)
+   - **URL**: `relay:3000` (default port; if you configured another `server.port` or `RELAY_SERVER_PORT`, update this to `relay:<PORT>`)
 5. Update your `docker-compose.yml`:
 
    ```yaml
@@ -656,7 +690,7 @@ If you prefer a completely containerized deployment without installing packages 
    docker compose up -d
    ```
 
-   In this setup, `cloudflared` communicates directly with `relay:3000` over the private Docker bridge network. The ThruBox port does not even need to be mapped to the host!
+   In this setup, `cloudflared` communicates directly with `relay:3000` (or `relay:<PORT>` if using a custom port) over the private Docker bridge network. The ThruBox port does not even need to be mapped to the host!
 
 #### Troubleshooting Cloudflare Tunnel
 
@@ -682,8 +716,10 @@ Once your ThruBox Server is exposed to the internet:
 
    Clients will be required to send this value in the `X-API-Key` HTTP header.
 
-2. **Verify Rate Limiting**:
-   ThruBox has built-in IP rate limiting (default: 30 requests/minute/IP). Because both Nginx and Cloudflare pass the client's original IP in the `X-Real-IP` and `X-Forwarded-For` headers, ThruBox correctly applies rate limits per client rather than to the proxy itself. You can adjust the limit via `security.rate_limit` or `RELAY_SECURITY_RATE_LIMIT`.
+2. **Verify Rate Limiting & Client IP Handling**:
+   ThruBox has built-in IP rate limiting (default: 30 requests/minute/IP, configurable via `security.rate_limit` or `RELAY_SECURITY_RATE_LIMIT`). Because ThruBox inspects `X-Forwarded-For` (using the first comma-separated entry) and `X-Real-IP` before falling back to the connecting socket address, ensure your proxy setup sanitizes these headers:
+   - **Nginx**: In the recommended Nginx configuration above, `proxy_set_header X-Forwarded-For $remote_addr;` overwrites any client-supplied `X-Forwarded-For` value with the connecting address. This ensures ThruBox applies rate limits to the verified client IP rather than an untrusted client-supplied header.
+   - **Cloudflare Tunnel**: Cloudflare Tunnel forwards client traffic from Cloudflare's edge network and provides the real client IP in the `CF-Connecting-IP` header. However, Cloudflare may preserve or append to client-supplied `X-Forwarded-For` headers. Because ThruBox inspects `X-Forwarded-For` and `X-Real-IP` (and not `CF-Connecting-IP`), per-client rate limiting cannot be guaranteed against spoofed headers unless you configure a Cloudflare Transform Rule to overwrite `X-Forwarded-For` / `X-Real-IP` with `CF-Connecting-IP`, or enforce rate limiting directly at the edge via Cloudflare WAF / Rate Limiting Rules.
 
 3. **Configure CORS If Calling Directly from Browsers**:
    If web applications hosted on other domains will call your relay directly, configure `security.allowed_origins` in `config.yaml` or set `RELAY_SECURITY_ALLOWED_ORIGINS` (see [CORS](#cors)). If you serve your frontend and relay under the same domain using reverse proxy path routing, CORS configuration is not needed.
