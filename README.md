@@ -356,7 +356,7 @@ Internet Requests (HTTPS)
    Expected response:
 
    ```json
-   {"status":"ok"}
+   {"status":"ok","timestamp":"2026-10-05T13:14:15Z"}
    ```
 
 Choose one of the two deployment methods below:
@@ -425,10 +425,10 @@ server {
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        # Proxy timeouts matching ThruBox server timeouts
+        # Proxy send/read timeouts aligned with the server's 15s read/write timeouts (server idle timeout is 60s)
         proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
+        proxy_send_timeout 15s;
+        proxy_read_timeout 15s;
     }
 }
 ```
@@ -440,6 +440,7 @@ server {
 - `proxy_pass http://127.0.0.1:3000;`: Proxies incoming requests to the ThruBox Docker container. Note that `3000` is the default port configured by `server.port` or `RELAY_SERVER_PORT`; if you configure another port, update this upstream target (`http://127.0.0.1:<PORT>`).
 - `proxy_set_header X-Real-IP $remote_addr;` and `proxy_set_header X-Forwarded-For $remote_addr;`: Passes the real client IP address. Overwriting `X-Forwarded-For` with `$remote_addr` (rather than appending via `$proxy_add_x_forwarded_for`) ensures Nginx replaces any client-supplied `X-Forwarded-For` value, preventing callers from spoofing their IP to bypass ThruBox's rate limits or deplete other clients' quotas.
 - `proxy_set_header Host` and `X-Forwarded-Proto`: Preserves the original requested host and protocol (HTTP vs HTTPS).
+- `proxy_connect_timeout 60s;`, `proxy_send_timeout 15s;`, and `proxy_read_timeout 15s;`: Sets timeouts for connecting to the backend container (60s connection establishment) and transmitting/reading requests (15s send/read, aligned with ThruBox Server's 15s read/write timeouts; server idle timeout is 60s).
 
 #### 3. Enable and Test Configuration
 
@@ -503,7 +504,7 @@ Expected response:
 HTTP/2 200
 content-type: application/json
 
-{"status":"ok"}
+{"status":"ok","timestamp":"2026-10-05T13:14:15Z"}
 ```
 
 #### Troubleshooting Nginx
