@@ -15,19 +15,20 @@ First stable release. See the [GitHub release](https://github.com/AOSSIE-Org/Thr
 
 ### Added
 
-- REST API: `POST /api/messages`, `GET /api/messages/{address}`, `DELETE /api/messages/{id}` and `GET /health`.
-- Per-mailbox sequence numbers (`seq`) on every message, and `?after=<seq>&limit=<n>` on `GET /api/messages/{address}` for cursor-based reads. Numbers are never reused, even after deletes or expiry. ([#69])
+- REST API: `POST /api/messages`, `GET /api/messages/{address}` and `GET /health`. Messages leave the relay only by expiring; there is no delete endpoint.
+- Per-mailbox sequence numbers (`seq`) on every message, and `?after=<seq>&limit=<n>` on `GET /api/messages/{address}` for cursor-based reads. Numbers are never reused, even after expiry. ([#69])
 - Message IDs derived from content: the SHA-256 of `to`, `from` and `payload`. Resending an identical message returns the stored one with `200` instead of creating a duplicate. ([#69])
 - `security.trusted_proxies` / `RELAY_SECURITY_TRUSTED_PROXIES` to read the client IP correctly behind reverse proxies. ([#68])
 - Configurable CORS allowlist for direct browser clients (`security.allowed_origins`). ([#32])
 - Optional API key authentication (`security.api_key`).
-- Message TTL with an hourly background purge (`messages.ttl_days`; `0` keeps messages until they are deleted).
+- Message TTL with an hourly background purge (`messages.ttl_days`; `0` keeps messages forever).
 - Configuration from `config.yaml` and `RELAY_*` environment variables, `PORT` as a fallback for hosting platforms, and `RELAY_CONFIG_PATH` for the config file location. ([#26], [#27])
 - Multi-arch Docker images on GitHub Container Registry with provenance attestations and SBOM. ([#12])
 - Self-hosting guides for Nginx and Cloudflare Tunnel, and a post-deployment security checklist. ([#11])
 
 ### Security
 
+- Removed `DELETE /api/messages/{id}`. It did not check who was asking, and reading a mailbox returns every message ID, so anyone could delete any user's messages before they were read. Expiry (`ttl_days`) removes messages instead. Authenticated deletion may return in a later release.
 - The rate limiter no longer trusts client-supplied `X-Forwarded-For` or `X-Real-IP`. Rotating either header used to bypass the limit. ([#68])
 
 [Unreleased]: https://github.com/AOSSIE-Org/ThruBox-Server/compare/v1.0.0...HEAD

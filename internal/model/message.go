@@ -18,7 +18,7 @@ type Message struct {
 	From      string     `json:"from"`      // Sender wallet address
 	Payload   string     `json:"payload"`   // Encrypted data (base64 string, opaque to server)
 	CreatedAt time.Time  `json:"createdAt"` // Timestamp when message was stored
-	ExpiresAt *time.Time `json:"expiresAt"` // Auto-purge time (nil = forever, only manual delete)
+	ExpiresAt *time.Time `json:"expiresAt"` // Auto-purge time (nil = never expires)
 }
 
 // ContentID returns a message's ID: the hex SHA-256 of its recipient, sender
