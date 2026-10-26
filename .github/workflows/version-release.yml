@@ -32,7 +32,9 @@ permissions:
 
 jobs:
   release:
-    if: ${{ github.repository_owner == 'AOSSIE-Org' }}
+    # Only release from main, including when started by hand: a manual run
+    # can pick any branch, and would otherwise tag and publish that branch.
+    if: ${{ github.repository_owner == 'AOSSIE-Org' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
