@@ -7,9 +7,10 @@ name: Version Release
 #   1. does nothing if vX.Y.Z is already published, so re-runs are safe;
 #   2. tags the current commit vX.Y.Z, or reuses that tag if an earlier,
 #      interrupted run created it on this same commit;
-#   3. publishes the vX.Y.Z draft on that tag. GitHub's generated "What's
-#      Changed" list (grouped by .github/release.yml) is appended unless the
-#      draft already has one. Without a draft, the release gets only that list;
+#   3. publishes the vX.Y.Z draft on that tag, followed by GitHub's freshly
+#      generated "What's Changed" list (grouped by .github/release.yml); any
+#      "What's Changed" section already in the draft is replaced, since it may
+#      be stale. Without a draft, the release gets only that list;
 #   4. starts the Docker build for the tag. A tag pushed with GITHUB_TOKEN does
 #      not trigger other workflows, so the build has to be dispatched.
 
@@ -107,11 +108,12 @@ jobs:
             --jq ".[] | select(.draft and (.name == \"$TAG\" or .tag_name == \"$TAG\")) | .id" | head -n 1)
 
           if [ -n "$DRAFT_ID" ]; then
-            gh api "repos/$GITHUB_REPOSITORY/releases/$DRAFT_ID" --jq '.body // ""' > "$NOTES"
-            if ! grep -q "^## What's Changed" "$NOTES"; then
-              printf '\n' >> "$NOTES"
-              cat "$RUNNER_TEMP/generated.md" >> "$NOTES"
-            fi
+            # Keep the draft's own notes up to any "What's Changed" section,
+            # which may be stale, then add the freshly generated list.
+            gh api "repos/$GITHUB_REPOSITORY/releases/$DRAFT_ID" --jq '.body // ""' \
+              | sed "/^## What's Changed/,\$d" > "$NOTES"
+            printf '\n' >> "$NOTES"
+            cat "$RUNNER_TEMP/generated.md" >> "$NOTES"
             gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$DRAFT_ID" \
               -f tag_name="$TAG" -f name="$TAG" -F draft=false -f make_latest=true \
               -F body=@"$NOTES" > /dev/null
