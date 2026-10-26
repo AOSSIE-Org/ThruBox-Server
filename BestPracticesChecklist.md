@@ -54,7 +54,7 @@
   - *Evidence URL:* `README.md`, `AGENTS.md`, `brand/Brand.md`
 
 - [x] 🔴 **documentation_interface** — Reference documentation describes the external interface (API inputs/outputs, CLI flags, config schema, etc.).
-  - *Evidence URL:* `README.md` "API Endpoints" (send/fetch) and "Configuration" table (YAML keys / env vars)
+  - *Evidence URL:* `README.md` "API Endpoints" (send/fetch/delete) and "Configuration" table (YAML keys / env vars)
 
 ### Other Basics
 

@@ -7,7 +7,7 @@ storage:
   path: "./data/relay.db"
 
 messages:
-  ttl_days: 7               # Auto-purge after N days. 0 keeps messages forever (the database then only grows)
+  ttl_days: 7               # Auto-purge after N days. Set to 0 for forever (no auto-purge, manual delete only)
   max_payload_size: 524288  # 500KB max payload
 
 security:

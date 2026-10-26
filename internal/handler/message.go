@@ -65,7 +65,7 @@ func (h *MessageHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: now,
 	}
 
-	// TTL of 0 means "forever" — the message never expires
+	// TTL of 0 means "forever" — message never auto-expires, only manual delete removes it
 	if h.TTLDays > 0 {
 		exp := now.Add(time.Duration(h.TTLDays) * 24 * time.Hour)
 		msg.ExpiresAt = &exp
@@ -145,4 +145,23 @@ func (h *MessageHandler) HandleGetByAddress(w http.ResponseWriter, r *http.Reque
 	if err := json.NewEncoder(w).Encode(messages); err != nil {
 		slog.Error("failed to encode response", "error", err)
 	}
+}
+
+// HandleDelete handles DELETE /api/messages/{id}.
+// Deletes a specific message by its ID.
+func (h *MessageHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "message id is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.Store.DeleteMessage(r.Context(), id); err != nil {
+		slog.Error("failed to delete message", "error", err, "id", id)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("message deleted", "id", id)
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -76,7 +76,7 @@ func main() {
 		go purgeLoop(purgeCtx, db)
 		slog.Info("auto-purge enabled", "ttl_days", cfg.Messages.TTLDays)
 	} else {
-		slog.Warn("auto-purge disabled (ttl_days=0): messages are kept forever and the database only grows")
+		slog.Info("auto-purge disabled (ttl_days=0, messages stored forever until manually deleted)")
 	}
 
 	// Set up handlers
@@ -91,6 +91,7 @@ func main() {
 	mux.HandleFunc("GET /health", handler.HandleHealth)
 	mux.HandleFunc("POST /api/messages", msgHandler.HandleCreate)
 	mux.HandleFunc("GET /api/messages/{address}", msgHandler.HandleGetByAddress)
+	mux.HandleFunc("DELETE /api/messages/{id}", msgHandler.HandleDelete)
 
 	// Apply middleware chain: CORS → API Key → Rate Limiter → Router
 	//

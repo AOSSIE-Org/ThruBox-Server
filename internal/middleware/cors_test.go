@@ -99,7 +99,7 @@ func TestCORS_PreflightIsAnsweredDirectly(t *testing.T) {
 	}
 
 	methods := rec.Header().Get("Access-Control-Allow-Methods")
-	for _, m := range []string{"GET", "POST"} {
+	for _, m := range []string{"GET", "POST", "DELETE"} {
 		if !strings.Contains(methods, m) {
 			t.Errorf("Access-Control-Allow-Methods = %q, want it to include %s", methods, m)
 		}

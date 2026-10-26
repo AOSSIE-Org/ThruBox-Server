@@ -68,8 +68,8 @@ func initSchema(db *sql.DB) error {
 	);
 
 	-- The last sequence number handed out per mailbox. Kept apart from the
-	-- messages so that purging the newest (expired) message cannot cause its
-	-- number to be handed out again.
+	-- messages so that deleting or purging the newest message cannot cause
+	-- its number to be handed out again.
 	CREATE TABLE IF NOT EXISTS mailboxes (
 		to_addr  TEXT PRIMARY KEY,
 		last_seq INTEGER NOT NULL
@@ -276,8 +276,20 @@ func (s *SQLiteStore) GetMessagesByAddress(ctx context.Context, address string, 
 	return messages, nil
 }
 
+// DeleteMessage removes a message by its ID.
+// Returns nil even if the message does not exist (idempotent).
+func (s *SQLiteStore) DeleteMessage(ctx context.Context, id string) error {
+	query := `DELETE FROM messages WHERE id = ?`
+
+	_, err := s.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("deleting message: %w", err)
+	}
+	return nil
+}
+
 // PurgeExpired deletes all messages whose ExpiresAt is in the past.
-// Messages with NULL expires_at ("forever") are never purged.
+// Messages with NULL expires_at ("forever") are never purged — only manual delete removes them.
 // Returns the number of deleted messages.
 func (s *SQLiteStore) PurgeExpired(ctx context.Context) (int64, error) {
 	// Only purge messages that have an expiry set (NOT NULL) and are past their expiry

@@ -15,10 +15,11 @@ const preflightMaxAge = 600
 const corsWildcard = "*"
 
 // allowedMethods mirrors the routes registered in cmd/relay: GET /health,
-// POST /api/messages and GET /api/messages/{address}.
+// POST /api/messages, GET /api/messages/{address}, DELETE /api/messages/{id}.
 var allowedMethods = []string{
 	http.MethodGet,
 	http.MethodPost,
+	http.MethodDelete,
 	http.MethodOptions,
 }
 

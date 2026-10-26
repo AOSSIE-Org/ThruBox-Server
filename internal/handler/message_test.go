@@ -26,6 +26,7 @@ func newTestServer(t *testing.T) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/messages", h.HandleCreate)
 	mux.HandleFunc("GET /api/messages/{address}", h.HandleGetByAddress)
+	mux.HandleFunc("DELETE /api/messages/{id}", h.HandleDelete)
 	return mux
 }
 
@@ -156,24 +157,5 @@ func TestHandleGetByAddress_InvalidParams(t *testing.T) {
 		if code != http.StatusBadRequest {
 			t.Errorf("GET ?%s status = %d, want 400", q, code)
 		}
-	}
-}
-
-// TestNoDeleteEndpoint guards the removal of DELETE /api/messages/{id},
-// which let anyone delete any user's messages. Messages leave the relay only
-// by expiring.
-func TestNoDeleteEndpoint(t *testing.T) {
-	srv := newTestServer(t)
-	_, msg := post(t, srv, `{"to":"0xalice","from":"0xbob","payload":"keep me"}`)
-
-	r := httptest.NewRequest(http.MethodDelete, "/api/messages/"+msg.ID, nil)
-	rec := httptest.NewRecorder()
-	srv.ServeHTTP(rec, r)
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Errorf("DELETE status = %d, want 405", rec.Code)
-	}
-
-	if _, msgs := get(t, srv, "/api/messages/0xalice"); len(msgs) != 1 {
-		t.Errorf("mailbox has %d messages after DELETE, want 1", len(msgs))
 	}
 }

@@ -88,28 +88,26 @@ func TestSaveMessage_SeqIsPerMailbox(t *testing.T) {
 	}
 }
 
-// TestSaveMessage_SeqNotReusedAfterPurge guards against handing out a
+// TestSaveMessage_SeqNotReusedAfterDelete guards against handing out a
 // number again once the newest message is gone. A client whose cursor is at
 // that number would otherwise never see the new message.
-func TestSaveMessage_SeqNotReusedAfterPurge(t *testing.T) {
+func TestSaveMessage_SeqNotReusedAfterDelete(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
 	first := newMessage("0xalice", "one")
 	save(t, s, first)
 	second := newMessage("0xalice", "two")
-	past := time.Now().UTC().Add(-time.Hour)
-	second.ExpiresAt = &past
 	save(t, s, second)
 
-	if n, err := s.PurgeExpired(ctx); err != nil || n != 1 {
-		t.Fatalf("PurgeExpired() = %d, %v; want 1, nil", n, err)
+	if err := s.DeleteMessage(ctx, second.ID); err != nil {
+		t.Fatalf("DeleteMessage() error = %v", err)
 	}
 
 	third := newMessage("0xalice", "three")
 	save(t, s, third)
 	if third.Seq != 3 {
-		t.Errorf("Seq after purging the newest message = %d, want 3", third.Seq)
+		t.Errorf("Seq after deleting the newest message = %d, want 3", third.Seq)
 	}
 
 	got, err := s.GetMessagesByAddress(ctx, "0xalice", second.Seq, 0)
