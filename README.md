@@ -111,7 +111,7 @@ graph TD
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/messages` | Store a new encrypted message |
-| `GET` | `/api/messages/:address` | Fetch all messages for a wallet address |
+| `GET` | `/api/messages/:address` | Fetch messages for a wallet address (optional `?after=<seq>&limit=<n>`) |
 | `DELETE` | `/api/messages/:id` | Delete a specific message |
 | `GET` | `/health` | Server health check |
 
@@ -123,11 +123,42 @@ curl -X POST http://localhost:3000/api/messages \
   -d '{"to": "0xRecipient", "from": "0xSender", "payload": "encrypted_base64_data"}'
 ```
 
+Returns `201 Created` with the stored message:
+
+```json
+{
+  "id": "3f0c…e91a",
+  "seq": 1,
+  "to": "0xRecipient",
+  "from": "0xSender",
+  "payload": "encrypted_base64_data",
+  "createdAt": "2026-10-26T10:00:00Z",
+  "expiresAt": "2026-11-02T10:00:00Z"
+}
+```
+
+- **`id`** is the hex SHA-256 of `to`, `from` and `payload`, so the same payload sent to two recipients gets two IDs. Sending an identical message again is safe: nothing new is stored, and the server answers `200 OK` with the message it already has.
+- **`seq`** is the message's position in the recipient's mailbox: 1, 2, 3, … per address. Numbers only go up and are never reused, even after a message is deleted or expires.
+
 ### Fetch Messages
 
 ```bash
+# Everything in the mailbox
 curl http://localhost:3000/api/messages/0xRecipient
+
+# Only messages newer than the last one you handled
+curl "http://localhost:3000/api/messages/0xRecipient?after=42"
+
+# At most 100 at a time
+curl "http://localhost:3000/api/messages/0xRecipient?after=42&limit=100"
 ```
+
+Messages come back oldest first, ordered by `seq`. To avoid downloading the same messages on every poll, a client remembers the highest `seq` it has handled and passes it as `after`. The cursor belongs to the client, so each device reading the same mailbox keeps its own.
+
+| Query parameter | Meaning |
+|-----------------|---------|
+| `after` | Only return messages with a `seq` greater than this. Default `0` (everything). |
+| `limit` | Return at most this many messages, from `1` to `1000`. Omitted, everything matching is returned. If you get a full page, ask again with `after` set to the last `seq` you received. |
 
 ### Delete a Message
 

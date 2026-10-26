@@ -229,7 +229,7 @@ Steps to test the changes
 
 ## 📝 Code Style Guidelines
 
-This is a Go project that keeps runtime dependencies minimal: `net/http` from the standard library plus `github.com/mattn/go-sqlite3`, `github.com/google/uuid`, and `gopkg.in/yaml.v3` (see `go.mod`). Discuss any new runtime dependency in an issue first. Run `gofmt`/`go vet` before committing, and keep the storage layer parameterized (no string-concatenated SQL) to avoid injection issues.
+This is a Go project that keeps runtime dependencies minimal: `net/http` from the standard library plus `github.com/mattn/go-sqlite3` and `gopkg.in/yaml.v3` (see `go.mod`). Discuss any new runtime dependency in an issue first. Run `gofmt`/`go vet` before committing, and keep the storage layer parameterized (no string-concatenated SQL) to avoid injection issues.
 
 ### General Guidelines
 
