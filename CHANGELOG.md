@@ -4,14 +4,14 @@ All notable changes to ThruBox Server are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-Each release also has detailed notes in [`docs/releases/`](docs/releases/), which
-become the body of its GitHub release.
+Each release also has detailed notes, with highlights and upgrade guidance, on its
+[GitHub release](https://github.com/AOSSIE-Org/ThruBox-Server/releases).
 
 ## [Unreleased]
 
 ## [1.0.0] - 2026-10-26
 
-First stable release. See the [release notes](docs/releases/v1.0.0.md) for an overview and diagrams.
+First stable release. See the [GitHub release](https://github.com/AOSSIE-Org/ThruBox-Server/releases/tag/v1.0.0) for an overview and diagrams.
 
 ### Added
 

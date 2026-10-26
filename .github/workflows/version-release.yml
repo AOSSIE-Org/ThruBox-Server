@@ -1,14 +1,15 @@
 name: Version Release
 
-# Cuts a release for the version in the VERSION file. It runs when VERSION or
-# the release notes in docs/releases/ change on main, or when started by hand.
-# For VERSION=X.Y.Z it:
+# Publishes the release for the version in the VERSION file. Release notes
+# are written as a GitHub draft release named vX.Y.Z (Releases → Draft a new
+# release). When VERSION changes on main, or when this is started by hand,
+# for VERSION=X.Y.Z it:
 #   1. does nothing if vX.Y.Z is already published, so re-runs are safe;
 #   2. tags the current commit vX.Y.Z, or reuses that tag if an earlier,
 #      interrupted run created it on this same commit;
-#   3. publishes a GitHub release whose body is docs/releases/vX.Y.Z.md (if it
-#      exists) followed by GitHub's generated "What's Changed" list, grouped by
-#      the categories in .github/release.yml;
+#   3. publishes the vX.Y.Z draft on that tag. GitHub's generated "What's
+#      Changed" list (grouped by .github/release.yml) is appended unless the
+#      draft already has one. Without a draft, the release gets only that list;
 #   4. starts the Docker build for the tag. A tag pushed with GITHUB_TOKEN does
 #      not trigger other workflows, so the build has to be dispatched.
 
@@ -18,7 +19,6 @@ on:
       - main
     paths:
       - 'VERSION'
-      - 'docs/releases/**'
   workflow_dispatch:
 
 concurrency:
@@ -26,7 +26,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write   # push the tag and create the release
+  contents: write   # push the tag and publish the release
   actions: write    # dispatch the Docker build for the tag
 
 jobs:
@@ -89,42 +89,39 @@ jobs:
             echo "✓ Created and pushed tag $TAG"
           fi
 
-      - name: Build release notes
+      - name: Publish the draft release
         if: steps.existing.outputs.released == 'false'
         run: |
           TAG="${{ steps.get_version.outputs.tag }}"
-          NOTES_FILE="docs/releases/$TAG.md"
+          NOTES="$RUNNER_TEMP/release-notes.md"
 
           # The previous published release, if any, bounds the generated list.
           PREVIOUS=$(gh release list --exclude-drafts --exclude-pre-releases --limit 1 \
             --json tagName --jq '.[0].tagName // empty')
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+            -f tag_name="$TAG" ${PREVIOUS:+-f previous_tag_name="$PREVIOUS"} \
+            --jq '.body' > "$RUNNER_TEMP/generated.md"
 
-          if [ ! -f "$NOTES_FILE" ]; then
-            echo "::warning::No $NOTES_FILE found; the release will only list merged pull requests."
-          fi
+          # The draft written for this version, by name or by tag.
+          DRAFT_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+            --jq ".[] | select(.draft and (.name == \"$TAG\" or .tag_name == \"$TAG\")) | .id" | head -n 1)
 
-          {
-            if [ -f "$NOTES_FILE" ]; then
-              cat "$NOTES_FILE"
-              echo
+          if [ -n "$DRAFT_ID" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/releases/$DRAFT_ID" --jq '.body // ""' > "$NOTES"
+            if ! grep -q "^## What's Changed" "$NOTES"; then
+              printf '\n' >> "$NOTES"
+              cat "$RUNNER_TEMP/generated.md" >> "$NOTES"
             fi
-            gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
-              -f tag_name="$TAG" ${PREVIOUS:+-f previous_tag_name="$PREVIOUS"} \
-              --jq '.body'
-          } > "$RUNNER_TEMP/release-notes.md"
-
-          echo "✓ Release notes built (previous release: ${PREVIOUS:-none})"
-
-      - name: Publish GitHub release
-        if: steps.existing.outputs.released == 'false'
-        run: |
-          TAG="${{ steps.get_version.outputs.tag }}"
-          gh release create "$TAG" \
-            --verify-tag \
-            --title "$TAG" \
-            --notes-file "$RUNNER_TEMP/release-notes.md" \
-            --latest
-          echo "✓ Published release $TAG"
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$DRAFT_ID" \
+              -f tag_name="$TAG" -f name="$TAG" -F draft=false -f make_latest=true \
+              -F body=@"$NOTES" > /dev/null
+            echo "✓ Published draft release $TAG"
+          else
+            echo "::warning::No draft release named $TAG found; publishing with the generated list only."
+            gh release create "$TAG" --verify-tag --title "$TAG" \
+              --notes-file "$RUNNER_TEMP/generated.md" --latest
+            echo "✓ Created release $TAG"
+          fi
 
       - name: Build and publish the Docker image for the tag
         if: steps.existing.outputs.released == 'false'

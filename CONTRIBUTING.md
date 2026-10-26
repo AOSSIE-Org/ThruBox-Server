@@ -230,14 +230,13 @@ Steps to test the changes
 
 ## 🏷️ Releasing (maintainers)
 
-Releases follow [Semantic Versioning](https://semver.org/) and are cut by merging a pull request:
+Releases follow [Semantic Versioning](https://semver.org/). Release notes are written as a GitHub draft release, and updating `VERSION` publishes it:
 
-1. Set the new version in `VERSION` (for example `1.1.0`).
-2. Add `docs/releases/v1.1.0.md` with the highlights for users: what changed, why it matters and anything they must do when upgrading (see [`v1.0.0.md`](docs/releases/v1.0.0.md)). Mermaid diagrams render in the release.
-3. Move the `[Unreleased]` entries in `CHANGELOG.md` under a new version heading.
-4. Merge to `main`. The **Version Release** workflow tags `v1.1.0` and publishes the GitHub release: your notes, followed by a "What's Changed" list of merged pull requests grouped by label (see `.github/release.yml`). It then builds and pushes the Docker image `ghcr.io/aossie-org/thrubox-server:1.1.0`, along with the `1.1` and `1` tags.
+1. On GitHub, go to **Releases → Draft a new release**, and name the draft and its tag after the new version, for example `v1.1.0`. Do not create the tag yet. Write the highlights for users: what changed, why it matters and anything they must do when upgrading (the v1.0.0 release is an example). Mermaid diagrams render. **Save it as a draft.**
+2. In a pull request, set `VERSION` to `1.1.0` and move the `[Unreleased]` entries in `CHANGELOG.md` under a new version heading.
+3. Merge to `main`. The **Version Release** workflow tags `v1.1.0` and publishes your draft on that tag, appending a "What's Changed" list of merged pull requests grouped by label (see `.github/release.yml`). It then builds and pushes the Docker image `ghcr.io/aossie-org/thrubox-server:1.1.0`, along with the `1.1` and `1` tags.
 
-Re-running the workflow is safe: it does nothing if the version is already published. Label pull requests (`backend`, `security`, `docker`, `documentation`, `dependencies`…) so they land in the right section, or add `skip-changelog` to leave one out.
+Re-running the workflow (Actions → Version Release → Run workflow) is safe: it does nothing if the version is already published. Label pull requests (`backend`, `security`, `docker`, `documentation`, `dependencies`…) so they land in the right section, or add `skip-changelog` to leave one out.
 
 ## 📝 Code Style Guidelines
 
