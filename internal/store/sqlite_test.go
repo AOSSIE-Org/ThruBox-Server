@@ -277,7 +277,10 @@ func TestNewSQLiteStore_MigratesOldSchema(t *testing.T) {
 		('uuid-c', '0xalice', '0xs', 'third',  '2026-01-01T00:00:03Z', NULL),
 		('uuid-a', '0xalice', '0xs', 'first',  '2026-01-01T00:00:01Z', NULL),
 		('uuid-b', '0xalice', '0xs', 'second', '2026-01-01T00:00:02Z', NULL),
-		('uuid-x', '0xbob',   '0xs', 'bob',    '2026-01-01T00:00:01Z', NULL);
+		('uuid-x', '0xbob',   '0xs', 'bob',    '2026-01-01T00:00:01Z', NULL),
+		-- Same second, inserted in this order, with IDs that sort the other way.
+		('uuid-z', '0xalice', '0xs', 'fourth', '2026-01-01T00:00:04Z', NULL),
+		('uuid-d', '0xalice', '0xs', 'fifth',  '2026-01-01T00:00:04Z', NULL);
 	`)
 	old.Close()
 	if err != nil {
@@ -294,7 +297,7 @@ func TestNewSQLiteStore_MigratesOldSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetMessagesByAddress() error = %v", err)
 	}
-	wantOrder := []string{"first", "second", "third"}
+	wantOrder := []string{"first", "second", "third", "fourth", "fifth"}
 	if len(got) != len(wantOrder) {
 		t.Fatalf("got %d messages, want %d", len(got), len(wantOrder))
 	}
@@ -304,10 +307,10 @@ func TestNewSQLiteStore_MigratesOldSchema(t *testing.T) {
 		}
 	}
 
-	next := newMessage("0xalice", "fourth")
+	next := newMessage("0xalice", "sixth")
 	save(t, s, next)
-	if next.Seq != 4 {
-		t.Errorf("first Seq after migration = %d, want 4", next.Seq)
+	if next.Seq != 6 {
+		t.Errorf("first Seq after migration = %d, want 6", next.Seq)
 	}
 
 	bob := newMessage("0xbob", "bob 2")
@@ -327,7 +330,7 @@ func TestNewSQLiteStore_MigratesOldSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetMessagesByAddress() after reopen error = %v", err)
 	}
-	if !equalSeqs(seqs(got), []int64{1, 2, 3, 4}) {
-		t.Errorf("seqs after reopen = %v, want [1 2 3 4]", seqs(got))
+	if !equalSeqs(seqs(got), []int64{1, 2, 3, 4, 5, 6}) {
+		t.Errorf("seqs after reopen = %v, want [1 2 3 4 5 6]", seqs(got))
 	}
 }

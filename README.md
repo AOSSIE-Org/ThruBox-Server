@@ -273,6 +273,8 @@ A single proxy in front of ThruBox (Nginx, a platform's load balancer) is `trust
 
 Setting the value higher than the real number of proxies lets clients choose their own IP again, so do not overestimate it.
 
+**Block direct access.** A non-zero `trusted_proxies` is only safe if every request reaches ThruBox through your proxy. A client that can connect to ThruBox directly can send its own `X-Forwarded-For` and pick any IP, which bypasses the rate limit again. When you set `trusted_proxies` above `0`, make sure only the proxy can reach ThruBox: publish the container port on `127.0.0.1` only (`-p 127.0.0.1:3000:3000`, as in the guides below), or firewall the port. Note that the bundled `docker-compose.yml` publishes `3000:3000` on all interfaces; change it to `127.0.0.1:3000:3000` when running behind a proxy. On hosting platforms that route every request through their load balancer (such as Render), there is no direct path to worry about.
+
 ### CORS
 
 By default the relay serves **no CORS headers**, so a browser calling it from
@@ -765,7 +767,7 @@ Once your ThruBox Server is exposed to the internet:
 2. **Verify Rate Limiting & Client IP Handling**:
    ThruBox has built-in IP rate limiting (default: 30 requests/minute/IP, configurable via `security.rate_limit` or `RELAY_SECURITY_RATE_LIMIT`). By default it limits by the connecting address and ignores `X-Forwarded-For` and `X-Real-IP`. Behind a proxy that address is the proxy's, so set `security.trusted_proxies` / `RELAY_SECURITY_TRUSTED_PROXIES` to the number of proxies in front of ThruBox (see [Behind a Reverse Proxy](#behind-a-reverse-proxy)):
    - **Nginx**: With the configuration above, set `trusted_proxies: 1`. Nginx overwrites `X-Forwarded-For` with the connecting address, and ThruBox reads that one entry.
-   - **Cloudflare Tunnel**: Cloudflare appends the address of the client that connected to its edge to `X-Forwarded-For`, and `cloudflared` passes the header on, so `trusted_proxies: 1` reads Cloudflare's entry and ignores anything the client sent. Confirm it with the log check described in [Behind a Reverse Proxy](#behind-a-reverse-proxy). You can also enforce rate limits at the edge with Cloudflare WAF / Rate Limiting Rules.
+   - **Cloudflare Tunnel**: Cloudflare appends the address of the client that connected to its edge to `X-Forwarded-For`, and `cloudflared` passes the header on, so `trusted_proxies: 1` reads Cloudflare's entry, the client address Cloudflare itself saw, and ignores anything the client sent. This only holds if ThruBox is reachable solely through the tunnel (see **Block direct access** in [Behind a Reverse Proxy](#behind-a-reverse-proxy)). Confirm it with the log check described in [Behind a Reverse Proxy](#behind-a-reverse-proxy). You can also enforce rate limits at the edge with Cloudflare WAF / Rate Limiting Rules.
 
 3. **Configure CORS If Calling Directly from Browsers**:
    If web applications hosted on other domains will call your relay directly, configure `security.allowed_origins` in `config.yaml` or set `RELAY_SECURITY_ALLOWED_ORIGINS` (see [CORS](#cors)). If you serve your frontend and relay under the same domain using reverse proxy path routing, CORS configuration is not needed.

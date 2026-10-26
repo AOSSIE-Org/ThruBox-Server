@@ -94,7 +94,9 @@ func initSchema(db *sql.DB) error {
 
 // migrateAddSeq adds the seq column to a messages table created before it
 // existed. Existing messages are numbered 1, 2, 3, ... per mailbox in the
-// order they arrived, and each mailbox's counter starts after its last one.
+// order they arrived (created_at, then rowid: created_at only has one-second
+// precision and old IDs are random UUIDs), and each mailbox's counter starts
+// after its last one.
 // It does nothing if the column is already there.
 func migrateAddSeq(db *sql.DB) error {
 	var hasSeq bool
@@ -117,7 +119,7 @@ func migrateAddSeq(db *sql.DB) error {
 		`ALTER TABLE messages ADD COLUMN seq INTEGER NOT NULL DEFAULT 0`,
 		`UPDATE messages SET seq = (
 			SELECT n FROM (
-				SELECT id, ROW_NUMBER() OVER (PARTITION BY to_addr ORDER BY created_at, id) AS n
+				SELECT id, ROW_NUMBER() OVER (PARTITION BY to_addr ORDER BY created_at, rowid) AS n
 				FROM messages
 			) numbered
 			WHERE numbered.id = messages.id
