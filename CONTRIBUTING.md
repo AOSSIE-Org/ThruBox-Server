@@ -22,6 +22,7 @@ We welcome contributions from everyone. By participating in this project, you ag
 - [Getting Started](#getting-started)
 - [Development Workflow](#development-workflow)
 - [Pull Request Guidelines](#pull-request-guidelines)
+- [Releasing (maintainers)](#releasing-maintainers)
 - [Code Style Guidelines](#code-style-guidelines)
 - [Debugging Pre-commit Hooks](#debugging-pre-commit-hooks)
 - [Community Guidelines](#community-guidelines)
@@ -227,9 +228,19 @@ Steps to test the changes
 - Instead of opening duplicate PRs, help review and improve existing ones.
 - When reviewing, assess whether the change is actually necessary before diving into implementation details and functionality testing.
 
+## 🏷️ Releasing (maintainers)
+
+Releases follow [Semantic Versioning](https://semver.org/). Release notes are written as a GitHub draft release, and updating `VERSION` publishes it:
+
+1. On GitHub, go to **Releases → Draft a new release**, and name the draft and its tag after the new version, for example `v1.1.0`. Do not create the tag yet. Write the highlights for users: what changed, why it matters and anything they must do when upgrading (the v1.0.0 release is an example). Mermaid diagrams render. **Save it as a draft.**
+2. In a pull request, set `VERSION` to `1.1.0` and move the `[Unreleased]` entries in `CHANGELOG.md` under a new version heading.
+3. Merge to `main`. The **Version Release** workflow tags `v1.1.0` and publishes your draft on that tag, appending a "What's Changed" list of merged pull requests grouped by label (see `.github/release.yml`). It then builds and pushes the Docker image `ghcr.io/aossie-org/thrubox-server:1.1.0`, along with the `1.1` and `1` tags.
+
+Re-running the workflow (Actions → Version Release → Run workflow) is safe: it does nothing if the version is already published. Label pull requests (`backend`, `security`, `docker`, `documentation`, `dependencies`…) so they land in the right section, or add `skip-changelog` to leave one out.
+
 ## 📝 Code Style Guidelines
 
-This is a Go project that keeps runtime dependencies minimal: `net/http` from the standard library plus `github.com/mattn/go-sqlite3`, `github.com/google/uuid`, and `gopkg.in/yaml.v3` (see `go.mod`). Discuss any new runtime dependency in an issue first. Run `gofmt`/`go vet` before committing, and keep the storage layer parameterized (no string-concatenated SQL) to avoid injection issues.
+This is a Go project that keeps runtime dependencies minimal: `net/http` from the standard library plus `github.com/mattn/go-sqlite3` and `gopkg.in/yaml.v3` (see `go.mod`). Discuss any new runtime dependency in an issue first. Run `gofmt`/`go vet` before committing, and keep the storage layer parameterized (no string-concatenated SQL) to avoid injection issues.
 
 ### General Guidelines
 

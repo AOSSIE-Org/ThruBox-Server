@@ -271,3 +271,48 @@ security:
 		t.Fatal("Load() error = nil, want a validation error for an origin with no host")
 	}
 }
+
+func TestTrustedProxies_DefaultIsZero(t *testing.T) {
+	clearEnvOverrides(t)
+
+	cfg, err := Load(filepath.Join(t.TempDir(), "does-not-exist.yaml"))
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Security.TrustedProxies != 0 {
+		t.Errorf("TrustedProxies = %d, want 0 so X-Forwarded-For is ignored by default",
+			cfg.Security.TrustedProxies)
+	}
+}
+
+func TestTrustedProxies_FromYAMLAndEnv(t *testing.T) {
+	clearEnvOverrides(t)
+
+	path := writeConfig(t, "security:\n  trusted_proxies: 1\n")
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Security.TrustedProxies != 1 {
+		t.Errorf("TrustedProxies = %d, want 1 from YAML", cfg.Security.TrustedProxies)
+	}
+
+	t.Setenv("RELAY_SECURITY_TRUSTED_PROXIES", "2")
+	cfg, err = Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Security.TrustedProxies != 2 {
+		t.Errorf("TrustedProxies = %d, want 2 from env", cfg.Security.TrustedProxies)
+	}
+}
+
+func TestTrustedProxies_NegativeIsRejected(t *testing.T) {
+	clearEnvOverrides(t)
+
+	path := writeConfig(t, "security:\n  trusted_proxies: -1\n")
+	if _, err := Load(path); err == nil {
+		t.Fatal("Load() error = nil, want an error for trusted_proxies: -1")
+	}
+}

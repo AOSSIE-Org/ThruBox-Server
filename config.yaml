@@ -7,11 +7,18 @@ storage:
   path: "./data/relay.db"
 
 messages:
-  ttl_days: 7               # Auto-purge after N days. Set to 0 for forever (no auto-purge, manual delete only)
+  ttl_days: 7               # Auto-purge after N days. 0 keeps messages forever (the database then only grows)
   max_payload_size: 524288  # 500KB max payload
 
 security:
   rate_limit: 30   # Requests per minute per IP
+
+  # Reverse proxies in front of the relay. 0 (the default) ignores
+  # X-Forwarded-For and rate-limits by the connecting address. Behind one
+  # proxy (Nginx, Cloudflare Tunnel, a hosting platform's load balancer) set 1,
+  # or every client shares the proxy's rate-limit bucket. Do not set it higher
+  # than the real number of proxies: that lets clients pick their own IP.
+  trusted_proxies: 0
   api_key: ""      # Optional: if set, all requests must include X-API-Key header
 
   # CORS allowlist for browsers calling the relay directly (no reverse proxy).

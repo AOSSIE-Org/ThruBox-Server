@@ -2,9 +2,12 @@ name: Release
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
+# Manual only. .goreleaser.yaml is still the unconfigured template, and
+# releases currently ship as Docker images (see version-release.yml). Once
+# binary builds are configured, trigger this from version-release.yml the
+# same way docker-publish.yml is.
 on:
-  push:
-    tags: ["v*.*.*"]
+  workflow_dispatch:
 jobs:
   release:
     name: Release with GoReleaser

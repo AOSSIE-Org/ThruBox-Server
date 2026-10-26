@@ -92,14 +92,14 @@ A simple, self-hostable relay server that acts as a **dumb encrypted mailbox**. 
 
 ```mermaid
 graph TD
-    Client["Client / SDK"] -->|HTTP| MW1["API Key Middleware"]
+    Client["Client / SDK"] -->|HTTP| MW0["CORS"]
+    MW0 --> MW1["API Key Middleware"]
     MW1 --> MW2["Rate Limiter"]
     MW2 --> Mux["net/http ServeMux"]
     Mux -->|"POST /api/messages"| H1["Create Message"]
     Mux -->|"GET /api/messages/:address"| H2["Get by Address"]
-    Mux -->|"DELETE /api/messages/:id"| H3["Delete Message"]
     Mux -->|"GET /health"| H4["Health Check"]
-    H1 & H2 & H3 --> Store["Store Interface"]
+    H1 & H2 --> Store["Store Interface"]
     Store --> SQLite["SQLiteStore (WAL mode)"]
     BG["Hourly Purge Goroutine"] --> Store
 ```
@@ -111,8 +111,7 @@ graph TD
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/messages` | Store a new encrypted message |
-| `GET` | `/api/messages/:address` | Fetch all messages for a wallet address |
-| `DELETE` | `/api/messages/:id` | Delete a specific message |
+| `GET` | `/api/messages/:address` | Fetch messages for a wallet address (optional `?after=<seq>&limit=<n>`) |
 | `GET` | `/health` | Server health check |
 
 ### Send a Message
@@ -123,17 +122,42 @@ curl -X POST http://localhost:3000/api/messages \
   -d '{"to": "0xRecipient", "from": "0xSender", "payload": "encrypted_base64_data"}'
 ```
 
+Returns `201 Created` with the stored message:
+
+```json
+{
+  "id": "3f0c…e91a",
+  "seq": 1,
+  "to": "0xRecipient",
+  "from": "0xSender",
+  "payload": "encrypted_base64_data",
+  "createdAt": "2026-10-26T10:00:00Z",
+  "expiresAt": "2026-11-02T10:00:00Z"
+}
+```
+
+- **`id`** is the hex SHA-256 of `to`, `from` and `payload`, so the same payload sent to two recipients gets two IDs. Sending an identical message again is safe: nothing new is stored, and the server answers `200 OK` with the message it already has.
+- **`seq`** is the message's position in the recipient's mailbox: 1, 2, 3, … per address. Numbers only go up and are never reused, even after a message expires.
+
 ### Fetch Messages
 
 ```bash
+# Everything in the mailbox
 curl http://localhost:3000/api/messages/0xRecipient
+
+# Only messages newer than the last one you handled
+curl "http://localhost:3000/api/messages/0xRecipient?after=42"
+
+# At most 100 at a time
+curl "http://localhost:3000/api/messages/0xRecipient?after=42&limit=100"
 ```
 
-### Delete a Message
+Messages come back oldest first, ordered by `seq`. To avoid downloading the same messages on every poll, a client remembers the highest `seq` it has handled and passes it as `after`. The cursor belongs to the client, so each device reading the same mailbox keeps its own.
 
-```bash
-curl -X DELETE http://localhost:3000/api/messages/<message-id>
-```
+| Query parameter | Meaning |
+|-----------------|---------|
+| `after` | Only return messages with a `seq` greater than this. Default `0` (everything). |
+| `limit` | Return at most this many messages, from `1` to `1000`. Omitted, everything matching is returned. If you get a full page, ask again with `after` set to the last `seq` you received. |
 
 ---
 
@@ -222,11 +246,27 @@ Edit `config.yaml` or use environment variables:
 | Server port (fallback) | — | `PORT` | _unset_ — used when `RELAY_SERVER_PORT` is unset **or empty** |
 | Server host | `server.host` | `RELAY_SERVER_HOST` | `0.0.0.0` |
 | Storage path | `storage.path` | `RELAY_STORAGE_PATH` | `./data/relay.db` |
-| Message TTL | `messages.ttl_days` | `RELAY_MESSAGES_TTL_DAYS` | `7` (0 = forever) |
+| Message TTL | `messages.ttl_days` | `RELAY_MESSAGES_TTL_DAYS` | `7` (0 = keep forever; the database then only grows) |
 | Max payload | `messages.max_payload_size` | `RELAY_MESSAGES_MAX_PAYLOAD_SIZE` | `524288` (500KB) |
 | Rate limit | `security.rate_limit` | `RELAY_SECURITY_RATE_LIMIT` | `30` req/min/IP |
+| Trusted proxies | `security.trusted_proxies` | `RELAY_SECURITY_TRUSTED_PROXIES` | `0` (ignore `X-Forwarded-For`) — see [Behind a reverse proxy](#behind-a-reverse-proxy) |
 | API key | `security.api_key` | `RELAY_SECURITY_API_KEY` | `` (disabled) |
 | CORS origins | `security.allowed_origins` | `RELAY_SECURITY_ALLOWED_ORIGINS` | `` (CORS disabled) |
+
+### Behind a Reverse Proxy
+
+The rate limiter counts requests per client IP. Where that IP comes from depends on `security.trusted_proxies`:
+
+- **`0` (default)** — the address of whoever opened the connection. `X-Forwarded-For` and `X-Real-IP` are ignored, so a client cannot fake its IP. Use this when clients connect to ThruBox directly.
+- **`N`** — the relay sits behind `N` proxies, and the client IP is the `N`th entry from the **right** of `X-Forwarded-For`. Each proxy appends the address it received the request from, so the rightmost `N` entries were written by your proxies; anything further left came from the client and is never read.
+
+**Set this if you run behind a proxy.** With the default `0`, every request appears to come from the proxy's address, so all your users share one rate-limit bucket and get `429 Too Many Requests` together. This covers Nginx, Cloudflare Tunnel, Docker port publishing behind a proxy, and hosting platforms such as Render, Railway or Fly.io.
+
+A single proxy in front of ThruBox (Nginx, a platform's load balancer) is `trusted_proxies: 1`. If you are unsure how many hops your platform adds, set `rate_limit` low for a moment, make a few requests and read the `ip` in the `rate limit exceeded` log line: it should be your own public IP, not a private or proxy address.
+
+Setting the value higher than the real number of proxies lets clients choose their own IP again, so do not overestimate it.
+
+**Block direct access.** A non-zero `trusted_proxies` is only safe if every request reaches ThruBox through your proxy. A client that can connect to ThruBox directly can send its own `X-Forwarded-For` and pick any IP, which bypasses the rate limit again. When you set `trusted_proxies` above `0`, make sure only the proxy can reach ThruBox: publish the container port on `127.0.0.1` only (`-p 127.0.0.1:3000:3000`, as in the guides below), or firewall the port. Note that the bundled `docker-compose.yml` publishes `3000:3000` on all interfaces; change it to `127.0.0.1:3000:3000` when running behind a proxy. On hosting platforms that route every request through their load balancer (such as Render), there is no direct path to worry about.
 
 ### CORS
 
@@ -257,7 +297,7 @@ RELAY_SECURITY_ALLOWED_ORIGINS="https://app.example.com,http://localhost:5173"
 
 When an origin is allowed, the relay answers preflights and returns
 `Access-Control-Allow-Origin` for that origin, `Access-Control-Allow-Methods:
-GET, POST, DELETE, OPTIONS`, and `Access-Control-Allow-Headers: Content-Type`
+GET, POST, OPTIONS`, and `Access-Control-Allow-Headers: Content-Type`
 — plus `X-API-Key` when `security.api_key` is set.
 
 Notes:
@@ -438,7 +478,7 @@ server {
 - `server_name relay.example.com;`: Tells Nginx which domain name this server block handles. Replace `relay.example.com` with your actual domain or subdomain.
 - `client_max_body_size 10M;`: Sets the maximum allowed HTTP request body size. Nginx's default is `1M`. Since ThruBox accepts encrypted payloads up to `messages.max_payload_size` (default: 500KB, configurable), setting this prevents Nginx from rejecting valid large payloads with `413 Request Entity Too Large`.
 - `proxy_pass http://127.0.0.1:3000;`: Proxies incoming requests to the ThruBox Docker container. Note that `3000` is the default port configured by `server.port` or `RELAY_SERVER_PORT`; if you configure another port, update this upstream target (`http://127.0.0.1:<PORT>`).
-- `proxy_set_header X-Real-IP $remote_addr;` and `proxy_set_header X-Forwarded-For $remote_addr;`: Passes the real client IP address. Overwriting `X-Forwarded-For` with `$remote_addr` (rather than appending via `$proxy_add_x_forwarded_for`) ensures Nginx replaces any client-supplied `X-Forwarded-For` value, preventing callers from spoofing their IP to bypass ThruBox's rate limits or deplete other clients' quotas.
+- `proxy_set_header X-Real-IP $remote_addr;` and `proxy_set_header X-Forwarded-For $remote_addr;`: Passes the real client IP address. Overwriting `X-Forwarded-For` with `$remote_addr` (rather than appending via `$proxy_add_x_forwarded_for`) leaves a single, trustworthy entry. ThruBox only reads it when told it is behind a proxy, so also start ThruBox with `RELAY_SECURITY_TRUSTED_PROXIES=1` (or `security.trusted_proxies: 1`); otherwise every request appears to come from Nginx and all clients share one rate-limit bucket. See [Behind a Reverse Proxy](#behind-a-reverse-proxy).
 - `proxy_set_header Host` and `X-Forwarded-Proto`: Preserves the original requested host and protocol (HTTP vs HTTPS).
 - `proxy_connect_timeout 60s;`, `proxy_send_timeout 15s;`, and `proxy_read_timeout 15s;`: Sets timeouts for connecting to the backend container (60s connection establishment) and transmitting/reading requests (15s send/read, aligned with ThruBox Server's 15s read/write timeouts; server idle timeout is 60s).
 
@@ -718,9 +758,9 @@ Once your ThruBox Server is exposed to the internet:
    Clients will be required to send this value in the `X-API-Key` HTTP header.
 
 2. **Verify Rate Limiting & Client IP Handling**:
-   ThruBox has built-in IP rate limiting (default: 30 requests/minute/IP, configurable via `security.rate_limit` or `RELAY_SECURITY_RATE_LIMIT`). Because ThruBox inspects `X-Forwarded-For` (using the first comma-separated entry) and `X-Real-IP` before falling back to the connecting socket address, ensure your proxy setup sanitizes these headers:
-   - **Nginx**: In the recommended Nginx configuration above, `proxy_set_header X-Forwarded-For $remote_addr;` overwrites any client-supplied `X-Forwarded-For` value with the connecting address. This ensures ThruBox applies rate limits to the verified client IP rather than an untrusted client-supplied header.
-   - **Cloudflare Tunnel**: Cloudflare Tunnel forwards client traffic from Cloudflare's edge network and provides the real client IP in the `CF-Connecting-IP` header. However, Cloudflare may preserve or append to client-supplied `X-Forwarded-For` headers. Because ThruBox inspects `X-Forwarded-For` and `X-Real-IP` (and not `CF-Connecting-IP`), per-client rate limiting cannot be guaranteed against spoofed headers unless you configure a Cloudflare Transform Rule to overwrite `X-Forwarded-For` / `X-Real-IP` with `CF-Connecting-IP`, or enforce rate limiting directly at the edge via Cloudflare WAF / Rate Limiting Rules.
+   ThruBox has built-in IP rate limiting (default: 30 requests/minute/IP, configurable via `security.rate_limit` or `RELAY_SECURITY_RATE_LIMIT`). By default it limits by the connecting address and ignores `X-Forwarded-For` and `X-Real-IP`. Behind a proxy that address is the proxy's, so set `security.trusted_proxies` / `RELAY_SECURITY_TRUSTED_PROXIES` to the number of proxies in front of ThruBox (see [Behind a Reverse Proxy](#behind-a-reverse-proxy)):
+   - **Nginx**: With the configuration above, set `trusted_proxies: 1`. Nginx overwrites `X-Forwarded-For` with the connecting address, and ThruBox reads that one entry.
+   - **Cloudflare Tunnel**: Cloudflare appends the address of the client that connected to its edge to `X-Forwarded-For`, and `cloudflared` passes the header on, so `trusted_proxies: 1` reads Cloudflare's entry, the client address Cloudflare itself saw, and ignores anything the client sent. This only holds if ThruBox is reachable solely through the tunnel (see **Block direct access** in [Behind a Reverse Proxy](#behind-a-reverse-proxy)). Confirm it with the log check described in [Behind a Reverse Proxy](#behind-a-reverse-proxy). You can also enforce rate limits at the edge with Cloudflare WAF / Rate Limiting Rules.
 
 3. **Configure CORS If Calling Directly from Browsers**:
    If web applications hosted on other domains will call your relay directly, configure `security.allowed_origins` in `config.yaml` or set `RELAY_SECURITY_ALLOWED_ORIGINS` (see [CORS](#cors)). If you serve your frontend and relay under the same domain using reverse proxy path routing, CORS configuration is not needed.

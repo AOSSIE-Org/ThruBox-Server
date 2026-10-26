@@ -33,7 +33,7 @@ docker compose up -d
 
 ## Hard Constraints
 
-- Keep runtime dependencies minimal: standard library `net/http` plus `mattn/go-sqlite3`, `google/uuid`, and `yaml.v3` (see `go.mod`) — don't add a web framework, ORM, or other new dependency without discussing it in an issue first.
+- Keep runtime dependencies minimal: standard library `net/http` plus `mattn/go-sqlite3` and `yaml.v3` (see `go.mod`) — don't add a web framework, ORM, or other new dependency without discussing it in an issue first.
 - All SQL must be parameterized (no string-concatenated queries) — this is a relay storing arbitrary payloads, so injection surface must stay closed.
 - The server must never decrypt or inspect message payloads; it only stores/forwards opaque blobs.
 
