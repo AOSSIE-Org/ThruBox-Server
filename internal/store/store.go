@@ -13,8 +13,8 @@ import (
 type Store interface {
 	// SaveMessage persists a new message to the store and sets msg.Seq to the
 	// next sequence number in the recipient's mailbox. Sequence numbers only
-	// ever increase within a mailbox, even across deletes and purges, so a
-	// client's cursor never skips a message.
+	// ever increase within a mailbox, even after expired messages are purged,
+	// so a client's cursor never skips a message.
 	//
 	// If a live message with the same ID already exists, nothing is stored:
 	// msg is overwritten with the stored copy and created is false.
@@ -25,10 +25,6 @@ type Store interface {
 	// A limit of 0 returns all of them.
 	// Returns an empty slice (not nil) if no messages are found.
 	GetMessagesByAddress(ctx context.Context, address string, after int64, limit int) ([]*model.Message, error)
-
-	// DeleteMessage removes a message by its ID.
-	// Returns nil if the message does not exist (idempotent delete).
-	DeleteMessage(ctx context.Context, id string) error
 
 	// PurgeExpired deletes all messages whose ExpiresAt is in the past.
 	// Returns the number of deleted messages.

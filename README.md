@@ -98,9 +98,8 @@ graph TD
     MW2 --> Mux["net/http ServeMux"]
     Mux -->|"POST /api/messages"| H1["Create Message"]
     Mux -->|"GET /api/messages/:address"| H2["Get by Address"]
-    Mux -->|"DELETE /api/messages/:id"| H3["Delete Message"]
     Mux -->|"GET /health"| H4["Health Check"]
-    H1 & H2 & H3 --> Store["Store Interface"]
+    H1 & H2 --> Store["Store Interface"]
     Store --> SQLite["SQLiteStore (WAL mode)"]
     BG["Hourly Purge Goroutine"] --> Store
 ```
@@ -113,7 +112,6 @@ graph TD
 |--------|----------|-------------|
 | `POST` | `/api/messages` | Store a new encrypted message |
 | `GET` | `/api/messages/:address` | Fetch messages for a wallet address (optional `?after=<seq>&limit=<n>`) |
-| `DELETE` | `/api/messages/:id` | Delete a specific message |
 | `GET` | `/health` | Server health check |
 
 ### Send a Message
@@ -139,7 +137,7 @@ Returns `201 Created` with the stored message:
 ```
 
 - **`id`** is the hex SHA-256 of `to`, `from` and `payload`, so the same payload sent to two recipients gets two IDs. Sending an identical message again is safe: nothing new is stored, and the server answers `200 OK` with the message it already has.
-- **`seq`** is the message's position in the recipient's mailbox: 1, 2, 3, … per address. Numbers only go up and are never reused, even after a message is deleted or expires.
+- **`seq`** is the message's position in the recipient's mailbox: 1, 2, 3, … per address. Numbers only go up and are never reused, even after a message expires.
 
 ### Fetch Messages
 
@@ -160,12 +158,6 @@ Messages come back oldest first, ordered by `seq`. To avoid downloading the same
 |-----------------|---------|
 | `after` | Only return messages with a `seq` greater than this. Default `0` (everything). |
 | `limit` | Return at most this many messages, from `1` to `1000`. Omitted, everything matching is returned. If you get a full page, ask again with `after` set to the last `seq` you received. |
-
-### Delete a Message
-
-```bash
-curl -X DELETE http://localhost:3000/api/messages/<message-id>
-```
 
 ---
 
@@ -254,7 +246,7 @@ Edit `config.yaml` or use environment variables:
 | Server port (fallback) | — | `PORT` | _unset_ — used when `RELAY_SERVER_PORT` is unset **or empty** |
 | Server host | `server.host` | `RELAY_SERVER_HOST` | `0.0.0.0` |
 | Storage path | `storage.path` | `RELAY_STORAGE_PATH` | `./data/relay.db` |
-| Message TTL | `messages.ttl_days` | `RELAY_MESSAGES_TTL_DAYS` | `7` (0 = forever) |
+| Message TTL | `messages.ttl_days` | `RELAY_MESSAGES_TTL_DAYS` | `7` (0 = keep forever; the database then only grows) |
 | Max payload | `messages.max_payload_size` | `RELAY_MESSAGES_MAX_PAYLOAD_SIZE` | `524288` (500KB) |
 | Rate limit | `security.rate_limit` | `RELAY_SECURITY_RATE_LIMIT` | `30` req/min/IP |
 | Trusted proxies | `security.trusted_proxies` | `RELAY_SECURITY_TRUSTED_PROXIES` | `0` (ignore `X-Forwarded-For`) — see [Behind a reverse proxy](#behind-a-reverse-proxy) |
@@ -305,7 +297,7 @@ RELAY_SECURITY_ALLOWED_ORIGINS="https://app.example.com,http://localhost:5173"
 
 When an origin is allowed, the relay answers preflights and returns
 `Access-Control-Allow-Origin` for that origin, `Access-Control-Allow-Methods:
-GET, POST, DELETE, OPTIONS`, and `Access-Control-Allow-Headers: Content-Type`
+GET, POST, OPTIONS`, and `Access-Control-Allow-Headers: Content-Type`
 — plus `X-API-Key` when `security.api_key` is set.
 
 Notes:
