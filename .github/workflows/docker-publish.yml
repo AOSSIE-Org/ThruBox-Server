@@ -19,6 +19,9 @@ on:
     tags: ["v*.*.*"]
   pull_request:
     branches: ["main"]
+  # version-release.yml dispatches this on the new tag (vX.Y.Z), because a tag
+  # pushed with GITHUB_TOKEN does not trigger the tags: filter above.
+  workflow_dispatch:
 
 # Cancel redundant runs for the same branch/PR, but never cancel tag releases.
 concurrency:

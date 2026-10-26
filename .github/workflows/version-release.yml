@@ -1,20 +1,42 @@
 name: Version Release
 
+# Cuts a release for the version in the VERSION file. It runs when VERSION or
+# the release notes in docs/releases/ change on main, or when started by hand.
+# For VERSION=X.Y.Z it:
+#   1. does nothing if vX.Y.Z is already published, so re-runs are safe;
+#   2. tags the current commit vX.Y.Z, or reuses that tag if an earlier,
+#      interrupted run created it on this same commit;
+#   3. publishes a GitHub release whose body is docs/releases/vX.Y.Z.md (if it
+#      exists) followed by GitHub's generated "What's Changed" list, grouped by
+#      the categories in .github/release.yml;
+#   4. starts the Docker build for the tag. A tag pushed with GITHUB_TOKEN does
+#      not trigger other workflows, so the build has to be dispatched.
+
 on:
   push:
     branches:
       - main
     paths:
       - 'VERSION'
+      - 'docs/releases/**'
+  workflow_dispatch:
+
+concurrency:
+  group: version-release
+  cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: write   # push the tag and create the release
+  actions: write    # dispatch the Docker build for the tag
 
 jobs:
   release:
     if: ${{ github.repository_owner == 'AOSSIE-Org' }}
     runs-on: ubuntu-latest
-    
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -26,6 +48,7 @@ jobs:
         run: |
           VERSION=$(cat VERSION | tr -d '[:space:]')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
           echo "Version detected: $VERSION"
 
       - name: Validate VERSION format
@@ -37,87 +60,91 @@ jobs:
           fi
           echo "✓ Version format is valid: $VERSION"
 
-      - name: Check if tag already exists
+      - name: Check whether this version is already released
+        id: existing
         run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
-          if git show-ref --tags --verify --quiet "refs/tags/v$VERSION"; then
-            echo "Error: Tag v$VERSION already exists"
-            exit 1
+          TAG="${{ steps.get_version.outputs.tag }}"
+          if [ "$(gh release view "$TAG" --json isDraft --jq '.isDraft' 2>/dev/null)" = "false" ]; then
+            echo "::notice::$TAG is already released; nothing to do."
+            echo "released=true" >> $GITHUB_OUTPUT
+          else
+            echo "released=false" >> $GITHUB_OUTPUT
           fi
-          echo "✓ Tag v$VERSION does not exist yet"
 
       - name: Create and push tag
+        if: steps.existing.outputs.released == 'false'
         run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v$VERSION" -m "Release version $VERSION"
-          git push origin "v$VERSION"
-          echo "✓ Created and pushed tag v$VERSION"
+          TAG="${{ steps.get_version.outputs.tag }}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            if [ "$(git rev-parse "$TAG^{commit}")" != "$(git rev-parse HEAD)" ]; then
+              echo "::error::Tag $TAG already exists on another commit ($(git rev-parse --short "$TAG^{commit}")). Bump VERSION, or delete the tag if it was created by mistake."
+              exit 1
+            fi
+            echo "✓ Reusing existing tag $TAG on this commit"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "Release version ${{ steps.get_version.outputs.version }}"
+            git push origin "$TAG"
+            echo "✓ Created and pushed tag $TAG"
+          fi
 
-      - name: Find and Publish Draft Release
-        id: publish_release
-        uses: actions/github-script@v9
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const version = 'v${{ steps.get_version.outputs.version }}';
-            
-            // Get all releases
-            const { data: releases } = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
-            
-            // Find the draft release
-            const draftRelease = releases.find(release => release.draft === true);
-            
-            if (draftRelease) {
-              console.log(`Found draft release: ${draftRelease.name}`);
-              
-              // Update and publish the draft release
-              await github.rest.repos.updateRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: draftRelease.id,
-                tag_name: version,
-                name: version,
-                draft: false,
-              });
-              
-              console.log(`✓ Published draft release as ${version}`);
-              core.setOutput('released', 'true');
-            } else {
-              console.log('⚠️ No draft release found. Please ensure release-drafter has created a draft release first.');
-              core.setOutput('released', 'false');
-              core.setFailed('No draft release found to publish');
-              
-              //Uncomment below to auto-create release if no draft exists but also check release-drafter config first(why not working)
-              // await github.rest.repos.createRelease({
-              //   owner: context.repo.owner,
-              //   repo: context.repo.repo,
-              //   tag_name: version,
-              //   name: version,
-              //   body: `## Release ${version}\n\nThis release was automatically created when the VERSION file was updated.`,
-              //   draft: false,
-              //   prerelease: false,
-              // });
-            }
+      - name: Build release notes
+        if: steps.existing.outputs.released == 'false'
+        run: |
+          TAG="${{ steps.get_version.outputs.tag }}"
+          NOTES_FILE="docs/releases/$TAG.md"
+
+          # The previous published release, if any, bounds the generated list.
+          PREVIOUS=$(gh release list --exclude-drafts --exclude-pre-releases --limit 1 \
+            --json tagName --jq '.[0].tagName // empty')
+
+          if [ ! -f "$NOTES_FILE" ]; then
+            echo "::warning::No $NOTES_FILE found; the release will only list merged pull requests."
+          fi
+
+          {
+            if [ -f "$NOTES_FILE" ]; then
+              cat "$NOTES_FILE"
+              echo
+            fi
+            gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+              -f tag_name="$TAG" ${PREVIOUS:+-f previous_tag_name="$PREVIOUS"} \
+              --jq '.body'
+          } > "$RUNNER_TEMP/release-notes.md"
+
+          echo "✓ Release notes built (previous release: ${PREVIOUS:-none})"
+
+      - name: Publish GitHub release
+        if: steps.existing.outputs.released == 'false'
+        run: |
+          TAG="${{ steps.get_version.outputs.tag }}"
+          gh release create "$TAG" \
+            --verify-tag \
+            --title "$TAG" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --latest
+          echo "✓ Published release $TAG"
+
+      - name: Build and publish the Docker image for the tag
+        if: steps.existing.outputs.released == 'false'
+        run: |
+          TAG="${{ steps.get_version.outputs.tag }}"
+          gh workflow run docker-publish.yml --ref "$TAG"
+          echo "✓ Dispatched docker-publish.yml for $TAG"
 
       - name: Release Summary
+        if: always()
         run: |
+          TAG="${{ steps.get_version.outputs.tag }}"
           echo "### Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version:** v${{ steps.get_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tag Created:** ✓" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.publish_release.outputs.released }}" = "true" ]; then
-            echo "- **GitHub Release:** ✓" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** $TAG" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.existing.outputs.released }}" = "true" ]; then
+            echo "- Already released, nothing to do." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ job.status }}" = "success" ]; then
+            echo "- **GitHub release:** https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG" >> $GITHUB_STEP_SUMMARY
+            echo "- **Docker image:** building as ghcr.io/${GITHUB_REPOSITORY,,}:${TAG#v} (see the Docker Publish workflow)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "- **GitHub Release:** ✗ (no draft found)" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.publish_release.outputs.released }}" = "true" ]; then
-            echo "Release completed successfully!" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Release failed - no draft release was found to publish" >> $GITHUB_STEP_SUMMARY
+            echo "- **Release failed.** Check the steps above; re-running is safe." >> $GITHUB_STEP_SUMMARY
           fi

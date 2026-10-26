@@ -92,7 +92,8 @@ A simple, self-hostable relay server that acts as a **dumb encrypted mailbox**. 
 
 ```mermaid
 graph TD
-    Client["Client / SDK"] -->|HTTP| MW1["API Key Middleware"]
+    Client["Client / SDK"] -->|HTTP| MW0["CORS"]
+    MW0 --> MW1["API Key Middleware"]
     MW1 --> MW2["Rate Limiter"]
     MW2 --> Mux["net/http ServeMux"]
     Mux -->|"POST /api/messages"| H1["Create Message"]

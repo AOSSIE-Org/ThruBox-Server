@@ -22,6 +22,7 @@ We welcome contributions from everyone. By participating in this project, you ag
 - [Getting Started](#getting-started)
 - [Development Workflow](#development-workflow)
 - [Pull Request Guidelines](#pull-request-guidelines)
+- [Releasing (maintainers)](#releasing-maintainers)
 - [Code Style Guidelines](#code-style-guidelines)
 - [Debugging Pre-commit Hooks](#debugging-pre-commit-hooks)
 - [Community Guidelines](#community-guidelines)
@@ -226,6 +227,17 @@ Steps to test the changes
 
 - Instead of opening duplicate PRs, help review and improve existing ones.
 - When reviewing, assess whether the change is actually necessary before diving into implementation details and functionality testing.
+
+## 🏷️ Releasing (maintainers)
+
+Releases follow [Semantic Versioning](https://semver.org/) and are cut by merging a pull request:
+
+1. Set the new version in `VERSION` (for example `1.1.0`).
+2. Add `docs/releases/v1.1.0.md` with the highlights for users: what changed, why it matters and anything they must do when upgrading (see [`v1.0.0.md`](docs/releases/v1.0.0.md)). Mermaid diagrams render in the release.
+3. Move the `[Unreleased]` entries in `CHANGELOG.md` under a new version heading.
+4. Merge to `main`. The **Version Release** workflow tags `v1.1.0` and publishes the GitHub release: your notes, followed by a "What's Changed" list of merged pull requests grouped by label (see `.github/release.yml`). It then builds and pushes the Docker image `ghcr.io/aossie-org/thrubox-server:1.1.0`, along with the `1.1` and `1` tags.
+
+Re-running the workflow is safe: it does nothing if the version is already published. Label pull requests (`backend`, `security`, `docker`, `documentation`, `dependencies`…) so they land in the right section, or add `skip-changelog` to leave one out.
 
 ## 📝 Code Style Guidelines
 
