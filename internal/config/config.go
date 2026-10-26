@@ -43,8 +43,14 @@ type MessageConfig struct {
 
 // SecurityConfig holds security-related settings.
 type SecurityConfig struct {
-	RateLimit int    `yaml:"rate_limit"`
-	APIKey    string `yaml:"api_key"`
+	RateLimit int `yaml:"rate_limit"`
+	// TrustedProxies is how many reverse proxies sit in front of the relay.
+	// 0 (the default) ignores X-Forwarded-For and rate-limits by the
+	// connecting address. N > 0 takes the client IP from the Nth
+	// X-Forwarded-For entry counted from the right, the last one a trusted
+	// proxy appended, so a client cannot spoof it by sending the header.
+	TrustedProxies int    `yaml:"trusted_proxies"`
+	APIKey         string `yaml:"api_key"`
 	// AllowedOrigins is the CORS allowlist. Empty (the default) serves no
 	// CORS headers at all. "*" allows any origin.
 	AllowedOrigins []string `yaml:"allowed_origins"`
@@ -68,7 +74,9 @@ func Default() *Config {
 		},
 		Security: SecurityConfig{
 			RateLimit: 30,
-			APIKey:    "",
+			// No proxies: X-Forwarded-For is ignored unless configured.
+			TrustedProxies: 0,
+			APIKey:         "",
 			// No origins: CORS stays off unless explicitly configured.
 			AllowedOrigins: nil,
 		},
@@ -161,6 +169,14 @@ func applyEnvOverrides(cfg *Config) {
 		}
 	}
 
+	if v := os.Getenv("RELAY_SECURITY_TRUSTED_PROXIES"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Security.TrustedProxies = n
+		} else {
+			log.Printf("warning: invalid RELAY_SECURITY_TRUSTED_PROXIES=%q, using default", v)
+		}
+	}
+
 	if v := os.Getenv("RELAY_SECURITY_API_KEY"); v != "" {
 		cfg.Security.APIKey = v
 	}
@@ -197,6 +213,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Security.RateLimit < 0 {
 		return fmt.Errorf("invalid rate_limit: %d", c.Security.RateLimit)
+	}
+	if c.Security.TrustedProxies < 0 {
+		return fmt.Errorf("invalid trusted_proxies: %d", c.Security.TrustedProxies)
 	}
 	if err := validateAllowedOrigins(c.Security.AllowedOrigins); err != nil {
 		return err

@@ -55,6 +55,7 @@ func main() {
 		"storage_path", cfg.Storage.Path,
 		"ttl_days", cfg.Messages.TTLDays,
 		"rate_limit", cfg.Security.RateLimit,
+		"trusted_proxies", cfg.Security.TrustedProxies,
 		"allowed_origins", cfg.Security.AllowedOrigins,
 	)
 
@@ -99,7 +100,7 @@ func main() {
 	// first every preflight would 401 and the real request would never be
 	// sent. CORS answers the preflight itself and lets everything else fall
 	// through to authentication as normal.
-	rateLimiter := middleware.NewRateLimiter(cfg.Security.RateLimit)
+	rateLimiter := middleware.NewRateLimiter(cfg.Security.RateLimit, cfg.Security.TrustedProxies)
 	defer rateLimiter.Stop()
 
 	var h http.Handler = mux

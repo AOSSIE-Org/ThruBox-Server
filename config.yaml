@@ -12,6 +12,13 @@ messages:
 
 security:
   rate_limit: 30   # Requests per minute per IP
+
+  # Reverse proxies in front of the relay. 0 (the default) ignores
+  # X-Forwarded-For and rate-limits by the connecting address. Behind one
+  # proxy (Nginx, Cloudflare Tunnel, a hosting platform's load balancer) set 1,
+  # or every client shares the proxy's rate-limit bucket. Do not set it higher
+  # than the real number of proxies: that lets clients pick their own IP.
+  trusted_proxies: 0
   api_key: ""      # Optional: if set, all requests must include X-API-Key header
 
   # CORS allowlist for browsers calling the relay directly (no reverse proxy).
